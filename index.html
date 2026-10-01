@@ -4,31 +4,25 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Spaceport Nova Tracker — Maritime Launch Services</title>
-  <meta name="description" content="Range Safety Proximity Calculator and 3D Infrastructure Monitor for Spaceport Nova Scotia in Canso, NS." />
+  <meta name="description" content="Range Safety Proximity Calculator and Launch Operations Monitor for Spaceport Nova Scotia in Canso, NS." />
 
-  <!-- Preconnect to CDNs for fast Edge delivery -->
+  <!-- Preconnect to CDNs for speed on Vercel Edge -->
   <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin />
   <link rel="preconnect" href="https://unpkg.com" crossorigin />
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- React 18 & Babel for zero-build browser compilation -->
+  <!-- React 18 & Babel for zero-build execution -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
-
-  <!-- Three.js & OrbitControls for 3D Topographic Digital Twin -->
-  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-  <script src="https://unpkg.com/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
 
   <style>
     body {
       background-color: #020617;
       color: #f8fafc;
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      margin: 0;
-      padding: 0;
     }
   </style>
 </head>
@@ -45,7 +39,7 @@
       name: "Spaceport Nova Scotia (LC-1)" 
     };
 
-    // Active Commercial Manifest
+    // Active Commercial Manifest (Real-World Operators)
     const ROCKET_MANIFEST = [
       {
         id: "barracuda-4",
@@ -93,7 +87,7 @@
       }
     ];
 
-    // Civil Infrastructure Progress
+    // Civil Engineering & Infrastructure Progress
     const SPACEPORT_FACILITIES = [
       { name: "Environmental Assessment & Crown Land Lease (335 Acres)", progress: 100, tag: "Regulatory", desc: "Provincial EA clearance & long-term site lease approved." },
       { name: "Suborbital Launch Pad & Campaign Setup", progress: 100, tag: "Suborbital Ops", desc: "Operational for commercial suborbital hypersonic flight tests." },
@@ -105,7 +99,7 @@
       { name: "Permanent Vehicle Assembly & Integration Facility (HIF)", progress: 20, tag: "Integration", desc: "Hangar engineering advancing toward construction tender." }
     ];
 
-    // Geodesic Haversine Calculation
+    // Haversine Geodesic Distance Calculation (Kilometers)
     function calculateDistanceKm(lat1, lon1, lat2, lon2) {
       const R = 6371;
       const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -118,7 +112,7 @@
       return R * c;
     }
 
-    // Hopkinson-Cranz Blast Scaling
+    // Hopkinson-Cranz Cube-Root Hazard Siting
     function calculateRadii(propellantTons) {
       const cbrt = Math.cbrt(Math.max(propellantTons, 0.2));
       return {
@@ -170,229 +164,18 @@
       };
     }
 
-    // --- OPTIMIZED 3D Digital Twin Component (Three.js) ---
-    function ThreeSpaceportViewer({ year, showDomes }) {
-      const mountRef = useRef(null);
-      const phasesRef = useRef({}); // Stores references to our 3D groups
-
-      // 1. Initialize Scene (Runs ONCE when tab opens)
-      useEffect(() => {
-        const container = mountRef.current;
-        if (!container) return;
-
-        const width = container.clientWidth;
-        const height = container.clientHeight || 550;
-
-        // Scene, Camera, Renderer
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x050b14);
-        scene.fog = new THREE.FogExp2(0x050b14, 0.012);
-
-        const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-        camera.position.set(38, 26, 48);
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(width, height);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        container.appendChild(renderer.domElement);
-
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.maxPolarAngle = Math.PI / 2 - 0.05;
-        controls.minDistance = 10;
-        controls.maxDistance = 140;
-        controls.target.set(0, 0, 0);
-
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0xdbeafe, 0.55);
-        scene.add(ambientLight);
-
-        const sunLight = new THREE.DirectionalLight(0xfffbeb, 1.2);
-        sunLight.position.set(45, 60, 30);
-        sunLight.castShadow = true;
-        sunLight.shadow.mapSize.width = 2048;
-        sunLight.shadow.mapSize.height = 2048;
-        const d = 40;
-        sunLight.shadow.camera.left = -d;
-        sunLight.shadow.camera.right = d;
-        sunLight.shadow.camera.top = d;
-        sunLight.shadow.camera.bottom = -d;
-        scene.add(sunLight);
-
-        // Reusable Materials (Optimized)
-        const matBldg = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 });
-        const matConcrete = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.7 });
-        const matSteel = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.6 });
-
-        // Atlantic Ocean Water Plane
-        const waterGeo = new THREE.PlaneGeometry(240, 240);
-        const waterMat = new THREE.MeshStandardMaterial({ color: 0x072540, roughness: 0.1, metalness: 0.85, transparent: true, opacity: 0.92 });
-        const water = new THREE.Mesh(waterGeo, waterMat);
-        water.rotation.x = -Math.PI / 2;
-        water.position.y = -0.6;
-        scene.add(water);
-
-        // Topographic Coastal Terrain Mesh
-        const terrainGeo = new THREE.PlaneGeometry(65, 65, 64, 64);
-        terrainGeo.rotateX(-Math.PI / 2);
-        const pos = terrainGeo.attributes.position;
-        for (let i = 0; i < pos.count; i++) {
-          const x = pos.getX(i);
-          const z = pos.getZ(i);
-          let elev = Math.sin(x * 0.08) * Math.cos(z * 0.08) * 1.8 + Math.sin(x * 0.18 + z * 0.15) * 0.6;
-          if (x > 18) elev -= (x - 18) * 0.28;
-          if (z < -18) elev -= (-18 - z) * 0.22;
-          pos.setY(i, Math.max(elev, -0.4));
-        }
-        terrainGeo.computeVertexNormals();
-        const terrainMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.88, metalness: 0.12, flatShading: true });
-        const terrain = new THREE.Mesh(terrainGeo, terrainMat);
-        terrain.receiveShadow = true;
-        scene.add(terrain);
-
-        // --- BUILD ALL PHASES ONCE ---
-        const phase1 = new THREE.Group();
-        const phase2 = new THREE.Group();
-        const phase3 = new THREE.Group();
-        const phase4 = new THREE.Group();
-        const domeGroup = new THREE.Group();
-
-        // PHASE 1: Survey Stakes
-        const stakeGeo = new THREE.CylinderGeometry(0.15, 0.15, 1.2);
-        const stakeMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
-        [[-15, -10], [-10, 15], [12, 10], [14, -8]].forEach(([sx, sz]) => {
-          const stake = new THREE.Mesh(stakeGeo, stakeMat);
-          stake.position.set(sx, 1, sz);
-          phase1.add(stake);
-        });
-
-        // PHASE 2: Road & Suborbital
-        const roadCurve = new THREE.CatmullRomCurve3([
-          new THREE.Vector3(-30, 0.25, 10), new THREE.Vector3(-15, 0.35, 6),
-          new THREE.Vector3(-2, 0.45, 0), new THREE.Vector3(10, 0.3, -4)
-        ]);
-        const road = new THREE.Mesh(new THREE.TubeGeometry(roadCurve, 32, 1.1, 6, false), new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.95 }));
-        phase2.add(road);
-        
-        const subPad = new THREE.Mesh(new THREE.BoxGeometry(6, 0.5, 6), matConcrete);
-        subPad.position.set(10, 0.3, -4);
-        phase2.add(subPad);
-
-        const dishGeo = new THREE.SphereGeometry(1.4, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2.2);
-        const dish = new THREE.Mesh(dishGeo, new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }));
-        dish.position.set(-2, 2.3, 8);
-        dish.rotation.x = Math.PI / 3;
-        phase2.add(dish);
-
-        // PHASE 3: Security & Utility
-        const gate = new THREE.Mesh(new THREE.BoxGeometry(4, 2.2, 3), matBldg);
-        gate.position.set(-24, 1.4, 11);
-        phase3.add(gate);
-        
-        const hub = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 5), matBldg);
-        hub.position.set(-6, 1.8, -6);
-        phase3.add(hub);
-
-        // PHASE 4: Orbital Complex
-        const orbPad = new THREE.Mesh(new THREE.CylinderGeometry(8, 9, 1.4, 32), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
-        orbPad.position.set(6, 0.8, 12);
-        phase4.add(orbPad);
-
-        const rocket = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 10, 16), new THREE.MeshStandardMaterial({ color: 0xf8fafc }));
-        rocket.position.set(6, 6.8, 12);
-        phase4.add(rocket);
-
-        const hif = new THREE.Mesh(new THREE.BoxGeometry(16, 5, 8), matBldg);
-        hif.position.set(-12, 2.8, -12);
-        phase4.add(hif);
-
-        // DOMES
-        const blastDome = new THREE.Mesh(new THREE.SphereGeometry(7, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xef4444, wireframe: true, transparent: true, opacity: 0.35 }));
-        blastDome.position.set(6, 0.8, 12);
-        domeGroup.add(blastDome);
-
-        const overDome = new THREE.Mesh(new THREE.SphereGeometry(15, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xf97316, wireframe: true, transparent: true, opacity: 0.18 }));
-        overDome.position.set(6, 0.8, 12);
-        domeGroup.add(overDome);
-
-        scene.add(phase1, phase2, phase3, phase4, domeGroup);
-        
-        // Save references to toggle visibility later
-        phasesRef.current = { phase1, phase2, phase3, phase4, domeGroup };
-
-        // Animation Loop
-        let animationFrameId;
-        const animate = () => {
-          animationFrameId = requestAnimationFrame(animate);
-          controls.update();
-          renderer.render(scene, camera);
-        };
-        animate();
-
-        // Responsive Resize
-        const handleResize = () => {
-          if (!container) return;
-          camera.aspect = container.clientWidth / (container.clientHeight || 550);
-          camera.updateProjectionMatrix();
-          renderer.setSize(container.clientWidth, container.clientHeight || 550);
-        };
-        window.addEventListener('resize', handleResize);
-
-        // Cleanup on unmount
-        return () => {
-          cancelAnimationFrame(animationFrameId);
-          window.removeEventListener('resize', handleResize);
-          if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
-          renderer.dispose();
-        };
-      }, []); // Empty dependency array ensures this heavy setup runs ONLY once
-
-      // 2. Instantly Toggle Visibility when Slider Moves (GPU Optimized)
-      useEffect(() => {
-        const phases = phasesRef.current;
-        if (!phases.phase1) return; // Wait until loaded
-
-        phases.phase2.visible = year >= 2024;
-        phases.phase3.visible = year >= 2026;
-        phases.phase4.visible = year >= 2028;
-        phases.domeGroup.visible = showDomes && year >= 2026;
-      }, [year, showDomes]);
-
-      return <div ref={mountRef} className="w-full h-[520px] rounded-xl overflow-hidden relative cursor-grab active:cursor-grabbing" />;
-    }
-
-    // --- Main Application ---
     function SpaceportApp() {
-      const [activeTab, setActiveTab] = useState('digital-twin');
+      const [activeTab, setActiveTab] = useState('safety');
       const [selectedRocketId, setSelectedRocketId] = useState('spectrum-1');
       const [distanceKm, setDistanceKm] = useState(4.2);
       const [gpsActive, setGpsActive] = useState(false);
       const [gpsCoords, setGpsCoords] = useState(null);
-
-      // 3D Timeline state
-      const [timelineYear, setTimelineYear] = useState(2026);
-      const [isPlaying, setIsPlaying] = useState(false);
-      const [showSafetyDomes, setShowSafetyDomes] = useState(true);
 
       const activeRocket = ROCKET_MANIFEST.find(r => r.id === selectedRocketId) || ROCKET_MANIFEST[0];
       const radii = calculateRadii(activeRocket.propellantTons);
       const status = getSafetyStatus(distanceKm, radii);
 
       const canvasRef = useRef(null);
-
-      // Timeline Auto-Play Timer
-      useEffect(() => {
-        let interval = null;
-        if (isPlaying) {
-          interval = setInterval(() => {
-            setTimelineYear((prev) => (prev >= 2028 ? 2022 : prev + 1));
-          }, 1800);
-        }
-        return () => clearInterval(interval);
-      }, [isPlaying]);
 
       const requestGPS = () => {
         if (!navigator.geolocation) {
@@ -414,9 +197,8 @@
         );
       };
 
-      // 2D Radar Canvas Loop (Proximity Calculator Tab)
+      // HTML5 Canvas Radar Render Loop
       useEffect(() => {
-        if (activeTab !== 'safety') return;
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
@@ -428,6 +210,7 @@
 
         ctx.clearRect(0, 0, w, h);
 
+        // Distance range rings
         ctx.strokeStyle = '#1e293b';
         ctx.lineWidth = 1;
         for (let i = 1; i <= 4; i++) {
@@ -436,30 +219,39 @@
           ctx.stroke();
         }
 
+        // NOTMAR Buffer (Blue)
         ctx.fillStyle = 'rgba(59, 130, 246, 0.08)';
         ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
         ctx.beginPath();
         ctx.arc(center.x, center.y, radii.notmarRadius * scale, 0, Math.PI * 2);
-        ctx.fill(); ctx.stroke();
+        ctx.fill();
+        ctx.stroke();
 
+        // Acoustic 140 dB Envelope (Yellow)
         ctx.fillStyle = 'rgba(234, 179, 8, 0.12)';
         ctx.strokeStyle = 'rgba(234, 179, 8, 0.6)';
         ctx.beginPath();
         ctx.arc(center.x, center.y, radii.acousticRadius * scale, 0, Math.PI * 2);
-        ctx.fill(); ctx.stroke();
+        ctx.fill();
+        ctx.stroke();
 
+        // Overpressure 1.0 psi Shock Envelope (Orange)
         ctx.fillStyle = 'rgba(249, 115, 22, 0.18)';
         ctx.strokeStyle = 'rgba(249, 115, 22, 0.7)';
         ctx.beginPath();
         ctx.arc(center.x, center.y, radii.overpressureRadius * scale, 0, Math.PI * 2);
-        ctx.fill(); ctx.stroke();
+        ctx.fill();
+        ctx.stroke();
 
+        // Blast Fragmentation Zone (Red)
         ctx.fillStyle = 'rgba(239, 68, 68, 0.35)';
         ctx.strokeStyle = '#ef4444';
         ctx.beginPath();
         ctx.arc(center.x, center.y, radii.blastRadius * scale, 0, Math.PI * 2);
-        ctx.fill(); ctx.stroke();
+        ctx.fill();
+        ctx.stroke();
 
+        // Launch Pad Center Point
         ctx.fillStyle = '#38bdf8';
         ctx.beginPath();
         ctx.arc(center.x, center.y, 5, 0, Math.PI * 2);
@@ -468,6 +260,7 @@
         ctx.fillStyle = '#94a3b8';
         ctx.fillText("PAD (LC-1)", center.x + 8, center.y + 3);
 
+        // Observer Position Marker
         const obsX = center.x;
         const obsY = center.y - (distanceKm * scale);
         ctx.fillStyle = '#a855f7';
@@ -475,7 +268,8 @@
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(obsX, obsY, 6, 0, Math.PI * 2);
-        ctx.fill(); ctx.stroke();
+        ctx.fill();
+        ctx.stroke();
 
         ctx.font = 'bold 11px monospace';
         ctx.fillStyle = '#f8fafc';
@@ -484,7 +278,7 @@
 
       return (
         <div className="min-h-screen flex flex-col max-w-6xl mx-auto px-4 py-6">
-          {/* Header & Tab Navigation */}
+          {/* Header & Navigation */}
           <header className="border-b border-slate-800 pb-5 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <div className="flex items-center gap-2">
@@ -492,111 +286,29 @@
                 <span className="text-xs uppercase font-mono tracking-widest text-cyan-400 font-semibold">Maritime Launch Services</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white mt-1">SPACEPORT NOVA TRACKER</h1>
-              <p className="text-xs sm:text-sm text-slate-400">Range Safety Proximity Calculator & 3D Topographic Digital Twin • Canso, Nova Scotia</p>
+              <p className="text-xs sm:text-sm text-slate-400">Canso Launch Complex Range Safety Matrix & Site Readiness • Guysborough County, NS</p>
             </div>
 
-            <div className="flex flex-wrap bg-slate-900 border border-slate-800 rounded-lg p-1 text-xs sm:text-sm font-semibold w-full md:w-auto">
-              <button 
-                onClick={() => setActiveTab('digital-twin')}
-                className={`flex-1 md:flex-none px-3.5 py-2 rounded-md transition ${activeTab === 'digital-twin' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-300 hover:text-white'}`}>
-                3D Digital Twin
-              </button>
+            <div className="flex bg-slate-900 border border-slate-800 rounded-lg p-1 text-sm font-semibold w-full md:w-auto">
               <button 
                 onClick={() => setActiveTab('safety')}
-                className={`flex-1 md:flex-none px-3.5 py-2 rounded-md transition ${activeTab === 'safety' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-300 hover:text-white'}`}>
+                className={`flex-1 md:flex-none px-4 py-2 rounded-md transition ${activeTab === 'safety' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white'}`}>
                 Proximity Calculator
               </button>
               <button 
                 onClick={() => setActiveTab('manifest')}
-                className={`flex-1 md:flex-none px-3.5 py-2 rounded-md transition ${activeTab === 'manifest' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-300 hover:text-white'}`}>
+                className={`flex-1 md:flex-none px-4 py-2 rounded-md transition ${activeTab === 'manifest' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white'}`}>
                 Rocket Manifest
               </button>
               <button 
                 onClick={() => setActiveTab('development')}
-                className={`flex-1 md:flex-none px-3.5 py-2 rounded-md transition ${activeTab === 'development' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-300 hover:text-white'}`}>
-                Civil Milestones
+                className={`flex-1 md:flex-none px-4 py-2 rounded-md transition ${activeTab === 'development' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white'}`}>
+                Spaceport Status
               </button>
             </div>
           </header>
 
-          {/* TAB 1: 3D DIGITAL TWIN & CONSTRUCTION TIMELINE SLIDER */}
-          {activeTab === 'digital-twin' && (
-            <div className="space-y-4">
-              <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-xl">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-800">
-                  <div>
-                    <h2 className="text-sm font-mono uppercase text-cyan-400 font-bold tracking-wider">Canso Peninsula 3D Topographic Model</h2>
-                    <p className="text-xs text-slate-400">Left-click + drag to orbit 360° • Right-click to pan • Scroll to zoom</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-xs font-mono text-slate-300 cursor-pointer select-none">
-                      <input 
-                        type="checkbox" 
-                        checked={showSafetyDomes} 
-                        onChange={(e) => setShowSafetyDomes(e.target.checked)}
-                        className="rounded accent-cyan-400"
-                      />
-                      Show 3D Blast Domes
-                    </label>
-                    <button 
-                      onClick={() => setIsPlaying(!isPlaying)}
-                      className={`px-3 py-1 text-xs font-bold font-mono rounded border transition ${isPlaying ? 'bg-amber-500/20 text-amber-300 border-amber-500' : 'bg-slate-800 text-cyan-300 border-slate-700 hover:bg-slate-700'}`}
-                    >
-                      {isPlaying ? '⏸ Pause Auto-Play' : '▶ Auto-Play Timeline'}
-                    </button>
-                  </div>
-                </div>
-
-                {/* 3D WebGL Canvas Viewport */}
-                <div className="relative mt-4 border border-slate-800 rounded-xl overflow-hidden bg-slate-950">
-                  <ThreeSpaceportViewer year={timelineYear} showDomes={showSafetyDomes} />
-                  
-                  {/* Phase Badge Overlay */}
-                  <div className="absolute top-4 left-4 bg-slate-900/90 border border-slate-800 backdrop-blur px-3 py-2 rounded-lg text-xs font-mono pointer-events-none shadow-lg">
-                    <div className="text-slate-400 uppercase text-[10px]">Active Era</div>
-                    <div className="text-cyan-400 font-black text-sm">
-                      {timelineYear <= 2022 && 'Phase 1: Site Clearance & Survey'}
-                      {timelineYear > 2022 && timelineYear <= 2024 && 'Phase 2: Suborbital & Leaf Space'}
-                      {timelineYear > 2024 && timelineYear <= 2026 && 'Phase 3: Security & Utility Hub'}
-                      {timelineYear > 2026 && 'Phase 4: Full Orbital Dual-Pad Complex'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Timeline Scrubber Controls */}
-                <div className="mt-5 p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-3">
-                  <div className="flex justify-between items-center text-xs font-mono">
-                    <span className="text-slate-400">SCRUB CIVIL BUILD TIMELINE:</span>
-                    <span className="text-lg font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/80 px-3 py-0.5 rounded">
-                      YEAR {timelineYear}
-                    </span>
-                  </div>
-
-                  <input 
-                    type="range" 
-                    min="2022" 
-                    max="2028" 
-                    step="1" 
-                    value={timelineYear}
-                    onChange={(e) => {
-                      setTimelineYear(parseInt(e.target.value));
-                      setIsPlaying(false);
-                    }}
-                    className="w-full accent-cyan-400 h-2.5 bg-slate-800 rounded-lg cursor-pointer"
-                  />
-
-                  <div className="grid grid-cols-4 text-center font-mono text-[11px] pt-1 text-slate-400">
-                    <div className={timelineYear === 2022 ? 'text-cyan-300 font-bold' : ''}>2022 (Permits)</div>
-                    <div className={timelineYear === 2024 ? 'text-cyan-300 font-bold' : ''}>2024 (Suborbital)</div>
-                    <div className={timelineYear === 2026 ? 'text-cyan-300 font-bold' : ''}>2026 (Utilities)</div>
-                    <div className={timelineYear === 2028 ? 'text-cyan-300 font-bold' : ''}>2028 (Orbital)</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: PROXIMITY CALCULATOR */}
+          {/* Tab 1: Proximity Calculator */}
           {activeTab === 'safety' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-5 space-y-6">
@@ -711,7 +423,7 @@
             </div>
           )}
 
-          {/* TAB 3: ROCKET MANIFEST */}
+          {/* Tab 2: Rocket Manifest */}
           {activeTab === 'manifest' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {ROCKET_MANIFEST.map((r) => (
@@ -762,7 +474,7 @@
             </div>
           )}
 
-          {/* TAB 4: CIVIL MILESTONES */}
+          {/* Tab 3: Spaceport Infrastructure Status */}
           {activeTab === 'development' && (
             <div className="space-y-4">
               <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl text-xs text-slate-300 flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between">
