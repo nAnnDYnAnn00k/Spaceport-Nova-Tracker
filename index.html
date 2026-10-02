@@ -77,7 +77,7 @@
       return { level: "SAFE OBSERVATION", color: "bg-emerald-950/80 border-emerald-500 text-emerald-200", badge: "bg-emerald-600", text: "You are outside all critical hazard boundaries. Safe public observation sector." };
     }
 
-    // --- HIGH-RES 3D VIEWER ---
+    // --- HIGH-RES 3D MASTER PLAN VIEWER ---
     function EnhancedThreeViewer({ year }) {
       const mountRef = useRef(null);
       const phasesRef = useRef({});
@@ -85,9 +85,10 @@
       useEffect(() => {
         const container = mountRef.current;
         if (!container) return;
+        const currentContainer = container; // Capture reference for clean unmounting
 
-        const w = container.clientWidth;
-        const h = container.clientHeight || 500;
+        const w = currentContainer.clientWidth;
+        const h = currentContainer.clientHeight || 500;
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x020617); 
@@ -97,11 +98,10 @@
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(w, h);
-        // THIS IS THE RESOLUTION FIX: Scales the canvas to high-DPI Retina/Mobile screens
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        container.appendChild(renderer.domElement);
+        currentContainer.appendChild(renderer.domElement);
 
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
@@ -109,12 +109,11 @@
         controls.minDistance = 15;
         controls.maxDistance = 150;
 
-        // Enhanced Lighting
         scene.add(new THREE.AmbientLight(0xffffff, 0.95)); 
         const dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
         dirLight.position.set(20, 50, 20);
         dirLight.castShadow = true;
-        dirLight.shadow.mapSize.width = 4096; // Crisp high-res shadows
+        dirLight.shadow.mapSize.width = 4096; 
         dirLight.shadow.mapSize.height = 4096;
         dirLight.shadow.camera.left = -50;
         dirLight.shadow.camera.right = 50;
@@ -123,15 +122,13 @@
         dirLight.shadow.bias = -0.0005;
         scene.add(dirLight);
 
-        // High-Quality Materials
         const matConcrete = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.9 });
         const matBuilding = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
         const matSteel = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.3 });
         const matRocketBody = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2 });
         const matRocketDark = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.2 });
 
-        // High-Poly Terrain
-        const terrainGeo = new THREE.PlaneGeometry(100, 100, 128, 128); // Increased resolution
+        const terrainGeo = new THREE.PlaneGeometry(100, 100, 128, 128); 
         terrainGeo.rotateX(-Math.PI / 2);
         const pos = terrainGeo.attributes.position;
         for (let i = 0; i < pos.count; i++) {
@@ -161,7 +158,6 @@
         const p2032 = new THREE.Group();
         const p2035 = new THREE.Group();
 
-        // Architectural Helpers
         const getElevation = (x, z) => {
           let elev = Math.sin(x * 0.1) * Math.cos(z * 0.1) * 1.5 + Math.sin(x * 0.05 + z * 0.05) * 2;
           if (x > 10) elev -= (x - 10) * 0.4;
@@ -174,7 +170,6 @@
           const base = new THREE.Mesh(new THREE.BoxGeometry(width, 4, depth), matBuilding);
           base.position.y = 2;
           base.castShadow = true; base.receiveShadow = true;
-          // Curved steel roof
           const roof = new THREE.Mesh(new THREE.CylinderGeometry(depth/2, depth/2, width, 32, 1, false, 0, Math.PI), matSteel);
           roof.rotation.z = Math.PI / 2;
           roof.position.y = 4;
@@ -185,7 +180,6 @@
 
         const buildPad = (x, z, scale, hasTrench = true) => {
           const padGroup = new THREE.Group();
-          // Detailed multi-tier base
           const baseLower = new THREE.Mesh(new THREE.BoxGeometry(10 * scale, 0.5, 10 * scale), matConcrete);
           baseLower.position.y = 0.25;
           baseLower.receiveShadow = true;
@@ -200,7 +194,7 @@
             padGroup.add(trench);
           }
 
-          const mastGeo = new THREE.CylinderGeometry(0.1, 0.2, 12 * scale, 16); // Smoother masts
+          const mastGeo = new THREE.CylinderGeometry(0.1, 0.2, 12 * scale, 16); 
           const offset = 3.5 * scale;
           [[-offset, -offset], [offset, -offset], [-offset, offset], [offset, offset]].forEach(([mx, mz]) => {
             const mast = new THREE.Mesh(mastGeo, matSteel);
@@ -215,7 +209,6 @@
 
         const buildRocket = (scale, type = "medium") => {
           const rGroup = new THREE.Group();
-          // High-poly cylinders for crisp curves
           const core = new THREE.Mesh(new THREE.CylinderGeometry(0.8 * scale, 0.8 * scale, 10 * scale, 32), matRocketBody);
           core.position.y = 6 * scale;
           core.castShadow = true;
@@ -226,7 +219,6 @@
           nose.castShadow = true;
           rGroup.add(nose);
 
-          // Detailed engine bell
           const engine = new THREE.Mesh(new THREE.CylinderGeometry(0.4 * scale, 0.7 * scale, 1 * scale, 32), matSteel);
           engine.position.y = 0.5 * scale;
           engine.castShadow = true;
@@ -235,7 +227,6 @@
           return rGroup;
         };
 
-        // --- 2024: Suborbital & Leaf Space ---
         const subPad = new THREE.Mesh(new THREE.BoxGeometry(5, 0.5, 5), matConcrete);
         subPad.position.set(-15, getElevation(-15, -10) + 0.25, -10);
         subPad.receiveShadow = true;
@@ -250,8 +241,7 @@
         dish.castShadow = true;
         p2024.add(dishBase, dish);
 
-        // --- 2026: Security & Utilities ---
-        const gate = buildHangar(5, 4); // Reused curved building logic
+        const gate = buildHangar(5, 4); 
         gate.position.set(-25, getElevation(-25, 15), 15);
         p2026.add(gate);
 
@@ -259,7 +249,6 @@
         hub.position.set(-5, getElevation(-5, 12), 12);
         p2026.add(hub);
 
-        // --- 2028: Pad 1 (Isar/RDX) & HIF ---
         const pad1 = buildPad(5, -2, 1);
         const rocket1 = buildRocket(1);
         rocket1.position.set(5, getElevation(5, -2) + 1, -2);
@@ -269,7 +258,6 @@
         hif.position.set(-10, getElevation(-10, 5), 5);
         p2028.add(hif);
 
-        // --- 2032: Pad 2 (Orbital Expansion) ---
         const pad2 = buildPad(15, 8, 1.1);
         const rocket2 = buildRocket(1.1);
         rocket2.position.set(15, getElevation(15, 8) + 1, 8);
@@ -279,7 +267,6 @@
         hifExt.position.set(-21, getElevation(-21, 5), 5);
         p2032.add(hifExt);
 
-        // --- 2035: Pad 3 (Heavy) & Pad 4 (Commercial) ---
         const pad3 = buildPad(-5, -18, 1.5);
         const rocket3 = buildRocket(1.5, "heavy");
         rocket3.position.set(-5, getElevation(-5, -18) + 1.5, -18);
@@ -300,17 +287,19 @@
         animate();
 
         const handleResize = () => {
-          if (!container) return;
-          camera.aspect = container.clientWidth / container.clientHeight;
+          if (!currentContainer) return;
+          camera.aspect = currentContainer.clientWidth / currentContainer.clientHeight;
           camera.updateProjectionMatrix();
-          renderer.setSize(container.clientWidth, container.clientHeight);
+          renderer.setSize(currentContainer.clientWidth, currentContainer.clientHeight);
         };
         window.addEventListener('resize', handleResize);
 
         return () => {
           cancelAnimationFrame(frameId);
           window.removeEventListener('resize', handleResize);
-          if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
+          if (currentContainer && currentContainer.contains(renderer.domElement)) {
+            currentContainer.removeChild(renderer.domElement);
+          }
           renderer.dispose();
         };
       }, []);
@@ -329,6 +318,141 @@
       return <div ref={mountRef} className="w-full h-[500px] rounded-xl overflow-hidden border border-slate-800 cursor-move bg-slate-950 shadow-inner" />;
     }
 
+    // --- NEW: 3D TELEMETRY ARC VIEWER ---
+    function TelemetryArcViewer({ rocket, progress }) {
+      const mountRef = useRef(null);
+      const sceneRef = useRef({});
+
+      useEffect(() => {
+        const container = mountRef.current;
+        if (!container) return;
+        const currentContainer = container;
+
+        const w = currentContainer.clientWidth;
+        const h = currentContainer.clientHeight || 500;
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x020617);
+
+        const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 10000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(w, h);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        currentContainer.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.maxPolarAngle = Math.PI / 2 - 0.05;
+
+        // Dynamic Arc Math based on Rocket Type
+        let points = [];
+        let camPos = new THREE.Vector3();
+        let targetPos = new THREE.Vector3();
+
+        if (rocket.missionType === 'Suborbital') {
+          // Sharp parabolic arc (100km alt, 100km downrange)
+          points = [
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(15, 50, 0),
+            new THREE.Vector3(50, 100, 0),
+            new THREE.Vector3(85, 50, 0),
+            new THREE.Vector3(100, 0, 0)
+          ];
+          camPos.set(50, 60, 180);
+          targetPos.set(50, 50, 0);
+        } else {
+          // Long orbital pitch-over (500km alt, 2000km downrange)
+          points = [
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(20, 150, 0),
+            new THREE.Vector3(200, 400, 0),
+            new THREE.Vector3(1000, 500, 0),
+            new THREE.Vector3(2000, 500, 0)
+          ];
+          camPos.set(1000, 300, 2200);
+          targetPos.set(1000, 250, 0);
+        }
+
+        camera.position.copy(camPos);
+        controls.target.copy(targetPos);
+        controls.update();
+
+        // Draw The Arc Line
+        const curve = new THREE.CatmullRomCurve3(points);
+        const curvePoints = curve.getPoints(100);
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(curvePoints);
+        const lineMat = new THREE.LineBasicMaterial({ color: 0xc026d3, linewidth: 2 }); // Fuchsia line
+        const curveLine = new THREE.Line(lineGeo, lineMat);
+        scene.add(curveLine);
+
+        // Rocket Marker (Cone)
+        const markerScale = rocket.missionType === 'Suborbital' ? 4 : 40; 
+        const markerGeo = new THREE.ConeGeometry(markerScale * 0.4, markerScale, 16);
+        const markerMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee }); // Cyan rocket
+        const marker = new THREE.Mesh(markerGeo, markerMat);
+        marker.rotation.x = Math.PI / 2; // Align to tangent
+        
+        // Wrapper group to position and rotate along the path
+        const markerGroup = new THREE.Group();
+        markerGroup.add(marker);
+        scene.add(markerGroup);
+
+        // Grid Plane
+        const gridScale = rocket.missionType === 'Suborbital' ? 200 : 4000;
+        const grid = new THREE.GridHelper(gridScale, 40, 0x1e293b, 0x0f172a);
+        scene.add(grid);
+
+        sceneRef.current = { curve, markerGroup };
+
+        let frameId;
+        const animate = () => {
+          frameId = requestAnimationFrame(animate);
+          controls.update();
+          renderer.render(scene, camera);
+        };
+        animate();
+
+        const handleResize = () => {
+          if (!currentContainer) return;
+          camera.aspect = currentContainer.clientWidth / currentContainer.clientHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(currentContainer.clientWidth, currentContainer.clientHeight);
+        };
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+          cancelAnimationFrame(frameId);
+          window.removeEventListener('resize', handleResize);
+          if (currentContainer && currentContainer.contains(renderer.domElement)) {
+            currentContainer.removeChild(renderer.domElement);
+          }
+          renderer.dispose();
+        };
+      }, [rocket.id]); 
+
+      // Update position based on slider
+      useEffect(() => {
+        const { curve, markerGroup } = sceneRef.current;
+        if (curve && markerGroup) {
+          const t = Math.max(0, Math.min(1, progress / 100));
+          const position = curve.getPoint(t);
+          
+          // Only calculate tangent if t < 1 to prevent snapping back to start
+          if (t < 1) {
+            const tangent = curve.getTangent(t).normalize();
+            markerGroup.position.copy(position);
+            const lookAtTarget = position.clone().add(tangent);
+            markerGroup.lookAt(lookAtTarget);
+          } else {
+            markerGroup.position.copy(position);
+          }
+        }
+      }, [progress]);
+
+      return <div ref={mountRef} className="w-full h-[400px] rounded-xl overflow-hidden border border-slate-800 cursor-move bg-slate-950 shadow-inner" />;
+    }
+
+
     function SpaceportApp() {
       const [activeTab, setActiveTab] = useState('3d-build');
       const [selectedRocketId, setSelectedRocketId] = useState('spectrum-1');
@@ -336,11 +460,42 @@
       const [gpsActive, setGpsActive] = useState(false);
       const [gpsCoords, setGpsCoords] = useState(null);
       const [buildYear, setBuildYear] = useState(2035);
+      
+      const [flightProgress, setFlightProgress] = useState(0);
+      const [isFlightPlaying, setIsFlightPlaying] = useState(false);
 
       const activeRocket = ROCKET_MANIFEST.find(r => r.id === selectedRocketId) || ROCKET_MANIFEST[0];
       const radii = calculateRadii(activeRocket.propellantTons);
       const status = getSafetyStatus(distanceKm, radii);
       const canvasRef = useRef(null);
+
+      const isSuborbital = activeRocket.missionType === 'Suborbital';
+
+      // Live HUD Math (Interpolated from progress 0-100)
+      const currentAlt = isSuborbital 
+        ? Math.round(Math.sin((flightProgress/100) * Math.PI) * 100) // Parabola peaking at 100km
+        : Math.round(Math.sin((flightProgress/100) * (Math.PI/2)) * 500); // Orbit climbing to 500km
+      
+      const currentVel = isSuborbital
+        ? Math.round(Math.abs(Math.cos((flightProgress/100) * Math.PI)) * 6000) // Slows at apogee
+        : Math.round((flightProgress / 100) * 28000); // Accelerates to orbital velocity
+
+      // Telemetry Auto-Play Timer
+      useEffect(() => {
+        let interval = null;
+        if (isFlightPlaying) {
+          interval = setInterval(() => {
+            setFlightProgress(prev => {
+              if (prev >= 100) {
+                setIsFlightPlaying(false);
+                return 100;
+              }
+              return prev + 0.5;
+            });
+          }, 50); // 20 updates per second for smooth sliding
+        }
+        return () => clearInterval(interval);
+      }, [isFlightPlaying]);
 
       const requestGPS = () => {
         if (!navigator.geolocation) {
@@ -360,6 +515,7 @@
         );
       };
 
+      // Canvas Radar Render Loop
       useEffect(() => {
         if (activeTab !== 'safety') return;
         const canvas = canvasRef.current;
@@ -415,6 +571,7 @@
               <button onClick={() => setActiveTab('safety')} className={`flex-1 md:flex-none px-4 py-2 rounded-md transition ${activeTab === 'safety' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white'}`}>Proximity Calculator</button>
               <button onClick={() => setActiveTab('manifest')} className={`flex-1 md:flex-none px-4 py-2 rounded-md transition ${activeTab === 'manifest' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white'}`}>Rocket Manifest</button>
               <button onClick={() => setActiveTab('development')} className={`flex-1 md:flex-none px-4 py-2 rounded-md transition ${activeTab === 'development' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white'}`}>Spaceport Status</button>
+              <button onClick={() => setActiveTab('telemetry')} className={`flex-1 md:flex-none px-4 py-2 rounded-md transition ${activeTab === 'telemetry' ? 'bg-fuchsia-600 text-white' : 'text-slate-300 hover:text-white'}`}>Telemetry Arc</button>
             </div>
           </header>
 
@@ -445,6 +602,70 @@
                     <span className={buildYear >= 2028 && buildYear < 2032 ? "text-cyan-400" : ""}>2028 (Pad 1)</span>
                     <span className={buildYear >= 2032 && buildYear < 2035 ? "text-cyan-400" : ""}>2032 (Pad 2)</span>
                     <span className={buildYear === 2035 ? "text-cyan-400" : ""}>2035 (4-Pad Complex)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TELEMETRY ARC TRACKER TAB (WITH UPGRADED UI) */}
+          {activeTab === 'telemetry' && (
+            <div className="space-y-6">
+              <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <h2 className="text-xs font-mono uppercase text-fuchsia-400 font-bold tracking-wider">Ascent Vector: {activeRocket.name}</h2>
+                  <span className="text-xs font-mono text-slate-400 bg-slate-950 border border-slate-800 px-2 py-1 rounded">
+                    {activeRocket.missionType.toUpperCase()} TRAJECTORY
+                  </span>
+                </div>
+                
+                {/* Live HUD Dashboard */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 flex flex-col">
+                    <span className="text-[10px] text-slate-500 font-mono">EST. ALTITUDE</span>
+                    <span className="text-xl font-bold text-cyan-400 font-mono">{currentAlt.toLocaleString()} <span className="text-sm">km</span></span>
+                  </div>
+                  <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 flex flex-col">
+                    <span className="text-[10px] text-slate-500 font-mono">EST. VELOCITY</span>
+                    <span className="text-xl font-bold text-fuchsia-400 font-mono">{currentVel.toLocaleString()} <span className="text-sm">km/h</span></span>
+                  </div>
+                </div>
+
+                <TelemetryArcViewer rocket={activeRocket} progress={flightProgress} />
+
+                <div className="mt-6 p-4 bg-slate-950 rounded-lg border border-slate-800">
+                  <div className="flex justify-between items-center mb-3">
+                    <button 
+                      onClick={() => {
+                        if (flightProgress >= 100) setFlightProgress(0); // Reset if at end
+                        setIsFlightPlaying(!isFlightPlaying);
+                      }}
+                      className={`px-4 py-1.5 text-xs font-bold font-mono rounded border transition ${isFlightPlaying ? 'bg-slate-800 text-fuchsia-300 border-slate-700' : 'bg-fuchsia-600/20 text-fuchsia-400 border-fuchsia-600/50 hover:bg-fuchsia-600/30'}`}
+                    >
+                      {isFlightPlaying ? '⏸ PAUSE' : '▶ PLAY LAUNCH'}
+                    </button>
+                    <span className="text-sm font-mono text-fuchsia-400 font-bold bg-slate-800 border border-slate-700 px-3 py-1 rounded">T+ {flightProgress.toFixed(1)}%</span>
+                  </div>
+                  
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="100" 
+                    step="0.5" 
+                    value={flightProgress}
+                    onChange={(e) => {
+                      setIsFlightPlaying(false);
+                      setFlightProgress(parseFloat(e.target.value));
+                    }}
+                    className="w-full accent-fuchsia-500 h-2 bg-slate-800 rounded-lg cursor-pointer"
+                  />
+                  
+                  {/* Dynamic Phase Labels based on Rocket Type */}
+                  <div className="flex justify-between text-[10px] sm:text-xs font-mono text-slate-500 mt-3 px-1">
+                    <span>LIFTOFF</span>
+                    <span>MAX-Q</span>
+                    <span>{isSuborbital ? 'APOGEE' : 'MECO / SEP'}</span>
+                    <span>{isSuborbital ? 'SPLASHDOWN' : 'ORBIT INSERTION'}</span>
                   </div>
                 </div>
               </div>
@@ -529,9 +750,14 @@
                       <div className="flex justify-between"><span className="text-slate-400">Trajectory Profile:</span><span className="text-white font-bold">{r.orbit}</span></div>
                     </div>
                   </div>
-                  <button onClick={() => { setSelectedRocketId(r.id); setActiveTab('safety'); }} className="mt-6 w-full py-2 bg-slate-800 hover:bg-cyan-500 hover:text-slate-950 border border-slate-700 text-cyan-300 text-xs font-bold rounded-lg transition">
-                    Select & Calculate Safety →
-                  </button>
+                  <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                    <button onClick={() => { setSelectedRocketId(r.id); setActiveTab('safety'); }} className="flex-1 py-2 bg-slate-800 hover:bg-cyan-500 hover:text-slate-950 border border-slate-700 text-cyan-300 text-xs font-bold rounded-lg transition">
+                      Safety Matrix →
+                    </button>
+                    <button onClick={() => { setSelectedRocketId(r.id); setFlightProgress(0); setIsFlightPlaying(false); setActiveTab('telemetry'); }} className="flex-1 py-2 bg-slate-800 hover:bg-fuchsia-600 hover:text-white border border-slate-700 text-fuchsia-400 text-xs font-bold rounded-lg transition">
+                      Track Arc →
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
