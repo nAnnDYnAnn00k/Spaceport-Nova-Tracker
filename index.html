@@ -43,7 +43,7 @@
       name: "Spaceport Nova Scotia (LC-1)" 
     };
 
-    // Active Commercial Manifest (Real-World Operators) - RESTORED
+    // Active Commercial Manifest (Real-World Operators)
     const ROCKET_MANIFEST = [
       {
         id: "barracuda-4",
@@ -91,7 +91,7 @@
       }
     ];
 
-    // Civil Engineering & Infrastructure Progress - RESTORED
+    // Civil Engineering & Infrastructure Progress
     const SPACEPORT_FACILITIES = [
       { name: "Environmental Assessment & Crown Land Lease (335 Acres)", progress: 100, tag: "Regulatory", desc: "Provincial EA clearance & long-term site lease approved." },
       { name: "Suborbital Launch Pad & Campaign Setup", progress: 100, tag: "Suborbital Ops", desc: "Operational for commercial suborbital hypersonic flight tests." },
@@ -103,7 +103,6 @@
       { name: "Permanent Vehicle Assembly & Integration Facility (HIF)", progress: 20, tag: "Integration", desc: "Hangar engineering advancing toward construction tender." }
     ];
 
-    // Haversine Geodesic Distance Calculation (Kilometers)
     function calculateDistanceKm(lat1, lon1, lat2, lon2) {
       const R = 6371;
       const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -116,7 +115,6 @@
       return R * c;
     }
 
-    // Hopkinson-Cranz Cube-Root Hazard Siting
     function calculateRadii(propellantTons) {
       const cbrt = Math.cbrt(Math.max(propellantTons, 0.2));
       return {
@@ -128,23 +126,15 @@
     }
 
     function getSafetyStatus(distanceKm, radii) {
-      if (distanceKm < radii.blastRadius) {
-        return { level: "LETHAL HAZARD", color: "bg-red-950/80 border-red-500 text-red-200", badge: "bg-red-600", text: "INSIDE PRIMARY BLAST ZONE: Catastrophic deflagration & fragmentation perimeter." };
-      }
-      if (distanceKm < radii.overpressureRadius) {
-        return { level: "HIGH HAZARD", color: "bg-orange-950/80 border-orange-500 text-orange-200", badge: "bg-orange-600", text: "INSIDE OVERPRESSURE RANGE: Risk of blast wave injury and window failure." };
-      }
-      if (distanceKm < radii.acousticRadius) {
-        return { level: "RESTRICTED", color: "bg-yellow-950/80 border-yellow-500 text-yellow-200", badge: "bg-yellow-600", text: "ACOUSTIC WARNING: Sound pressure exceeds 140 dB. Mandatory ear protection." };
-      }
-      if (distanceKm < radii.notmarRadius) {
-        return { level: "CAUTION", color: "bg-blue-950/80 border-blue-500 text-blue-200", badge: "bg-blue-600", text: "INSIDE NOTICE TO MARINERS (NOTMAR) BUFFER: Closed to marine and fishing vessels." };
-      }
+      if (distanceKm < radii.blastRadius) return { level: "LETHAL HAZARD", color: "bg-red-950/80 border-red-500 text-red-200", badge: "bg-red-600", text: "INSIDE PRIMARY BLAST ZONE: Catastrophic deflagration & fragmentation perimeter." };
+      if (distanceKm < radii.overpressureRadius) return { level: "HIGH HAZARD", color: "bg-orange-950/80 border-orange-500 text-orange-200", badge: "bg-orange-600", text: "INSIDE OVERPRESSURE RANGE: Risk of blast wave injury and window failure." };
+      if (distanceKm < radii.acousticRadius) return { level: "RESTRICTED", color: "bg-yellow-950/80 border-yellow-500 text-yellow-200", badge: "bg-yellow-600", text: "ACOUSTIC WARNING: Sound pressure exceeds 140 dB. Mandatory ear protection." };
+      if (distanceKm < radii.notmarRadius) return { level: "CAUTION", color: "bg-blue-950/80 border-blue-500 text-blue-200", badge: "bg-blue-600", text: "INSIDE NOTICE TO MARINERS (NOTMAR) BUFFER: Closed to marine and fishing vessels." };
       return { level: "SAFE OBSERVATION", color: "bg-emerald-950/80 border-emerald-500 text-emerald-200", badge: "bg-emerald-600", text: "You are outside all critical hazard boundaries. Safe public observation sector." };
     }
 
-    // --- CLEAN 3D VIEWER COMPONENT ---
-    function SimplisticThreeViewer({ year }) {
+    // --- UPGRADED TOPOGRAPHIC 3D VIEWER (2022-2035) ---
+    function EnhancedThreeViewer({ year }) {
       const mountRef = useRef(null);
       const phasesRef = useRef({});
 
@@ -153,87 +143,189 @@
         if (!container) return;
 
         const w = container.clientWidth;
-        const h = container.clientHeight || 450;
+        const h = container.clientHeight || 500;
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x020617); 
+        scene.fog = new THREE.FogExp2(0x020617, 0.015);
 
         const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
-        camera.position.set(25, 15, 25);
+        camera.position.set(45, 30, 45);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(w, h);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
 
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.maxPolarAngle = Math.PI / 2 - 0.05; 
+        controls.maxPolarAngle = Math.PI / 2 - 0.02; // Keep above ground
+        controls.minDistance = 15;
+        controls.maxDistance = 150;
 
         // Lighting
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        dirLight.position.set(10, 20, 10);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(20, 50, 20);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.left = -40;
+        dirLight.shadow.camera.right = 40;
+        dirLight.shadow.camera.top = 40;
+        dirLight.shadow.camera.bottom = -40;
         scene.add(dirLight);
 
-        // Grid Base
-        const grid = new THREE.GridHelper(30, 30, 0x334155, 0x1e293b);
-        scene.add(grid);
-
-        const ground = new THREE.Mesh(
-          new THREE.PlaneGeometry(30, 30),
-          new THREE.MeshBasicMaterial({ color: 0x0f172a, depthWrite: false })
-        );
-        ground.rotation.x = -Math.PI / 2;
-        scene.add(ground);
-
         // Materials
-        const matConcrete = new THREE.MeshStandardMaterial({ color: 0x64748b });
-        const matBuilding = new THREE.MeshStandardMaterial({ color: 0x475569 });
-        const matRocket = new THREE.MeshStandardMaterial({ color: 0xf8fafc });
-        const matHighlight = new THREE.MeshStandardMaterial({ color: 0x38bdf8 });
+        const matConcrete = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.8 });
+        const matBuilding = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.6 });
+        const matSteel = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.7, roughness: 0.4 });
+        const matRocketBody = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 });
+        const matRocketDark = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3 });
+
+        // --- TOPOGRAPHIC TERRAIN (Canso Peninsula) ---
+        const terrainGeo = new THREE.PlaneGeometry(100, 100, 64, 64);
+        terrainGeo.rotateX(-Math.PI / 2);
+        const pos = terrainGeo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          const x = pos.getX(i);
+          const z = pos.getZ(i);
+          // Procedural hills
+          let elev = Math.sin(x * 0.1) * Math.cos(z * 0.1) * 1.5 + Math.sin(x * 0.05 + z * 0.05) * 2;
+          // Coastline dropoff on the positive X / negative Z edge
+          if (x > 10) elev -= (x - 10) * 0.4;
+          if (z < -10) elev -= (-10 - z) * 0.3;
+          pos.setY(i, elev);
+        }
+        terrainGeo.computeVertexNormals();
+        const terrain = new THREE.Mesh(terrainGeo, new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.9 }));
+        terrain.receiveShadow = true;
+        scene.add(terrain);
+
+        // Water Plane (Atlantic)
+        const water = new THREE.Mesh(
+          new THREE.PlaneGeometry(120, 120),
+          new THREE.MeshStandardMaterial({ color: 0x072540, transparent: true, opacity: 0.85, roughness: 0.1, metalness: 0.8 })
+        );
+        water.rotation.x = -Math.PI / 2;
+        water.position.y = -1.5;
+        scene.add(water);
 
         // Phase Groups
         const p2024 = new THREE.Group();
         const p2026 = new THREE.Group();
         const p2028 = new THREE.Group();
+        const p2032 = new THREE.Group();
+        const p2035 = new THREE.Group();
 
-        // 2024: Access Road & Suborbital Pad
-        const subPad = new THREE.Mesh(new THREE.BoxGeometry(4, 0.2, 4), matConcrete);
-        subPad.position.set(-8, 0.1, -8);
+        // Helper Function to Build an Enhanced Pad
+        const buildPad = (x, z, scale, hasTrench = true) => {
+          const padGroup = new THREE.Group();
+          
+          const base = new THREE.Mesh(new THREE.BoxGeometry(8 * scale, 1, 8 * scale), matConcrete);
+          base.position.y = 0.5;
+          base.castShadow = true;
+          base.receiveShadow = true;
+          padGroup.add(base);
+
+          if (hasTrench) {
+            const trench = new THREE.Mesh(new THREE.BoxGeometry(3 * scale, 1.2, 12 * scale), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
+            trench.position.set(0, 0.6, 2 * scale);
+            padGroup.add(trench);
+          }
+
+          // 4 Lightning Masts
+          const mastGeo = new THREE.CylinderGeometry(0.1, 0.2, 12 * scale);
+          const offset = 3.5 * scale;
+          [[-offset, -offset], [offset, -offset], [-offset, offset], [offset, offset]].forEach(([mx, mz]) => {
+            const mast = new THREE.Mesh(mastGeo, matSteel);
+            mast.position.set(mx, 6 * scale, mz);
+            mast.castShadow = true;
+            padGroup.add(mast);
+          });
+
+          padGroup.position.set(x, getElevation(x, z), z);
+          return padGroup;
+        };
+
+        // Helper to get terrain elevation at specific coordinates
+        const getElevation = (x, z) => {
+          let elev = Math.sin(x * 0.1) * Math.cos(z * 0.1) * 1.5 + Math.sin(x * 0.05 + z * 0.05) * 2;
+          if (x > 10) elev -= (x - 10) * 0.4;
+          if (z < -10) elev -= (-10 - z) * 0.3;
+          return Math.max(elev, -1);
+        };
+
+        const buildRocket = (scale, type = "medium") => {
+          const rGroup = new THREE.Group();
+          const coreGeo = new THREE.CylinderGeometry(0.8 * scale, 0.8 * scale, 10 * scale, 16);
+          const core = new THREE.Mesh(coreGeo, matRocketBody);
+          core.position.y = 5 * scale;
+          core.castShadow = true;
+          rGroup.add(core);
+
+          const noseGeo = new THREE.ConeGeometry(0.8 * scale, 2.5 * scale, 16);
+          const nose = new THREE.Mesh(noseGeo, type === "heavy" ? matRocketDark : matRocketBody);
+          nose.position.y = 11.25 * scale;
+          rGroup.add(nose);
+
+          return rGroup;
+        };
+
+        // --- 2024: Suborbital & Leaf Space ---
+        const subPad = new THREE.Mesh(new THREE.BoxGeometry(5, 0.5, 5), matConcrete);
+        subPad.position.set(-15, getElevation(-15, -10) + 0.25, -10);
         p2024.add(subPad);
 
-        const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 2, 16), matHighlight);
-        antenna.position.set(-8, 1.1, -4);
-        p2024.add(antenna);
+        const dishBase = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 2), matConcrete);
+        dishBase.position.set(-15, getElevation(-15, -4) + 1, -4);
+        const dish = new THREE.Mesh(new THREE.SphereGeometry(1.5, 16, 16, 0, Math.PI*2, 0, Math.PI/2.5), matRocketBody);
+        dish.rotation.x = Math.PI / 4;
+        dish.position.set(-15, getElevation(-15, -4) + 2.5, -4);
+        p2024.add(dishBase, dish);
 
-        // 2026: Utility Hub & Security
-        const hub = new THREE.Mesh(new THREE.BoxGeometry(5, 3, 3), matBuilding);
-        hub.position.set(5, 1.5, -8);
-        p2026.add(hub);
-        
-        const gate = new THREE.Mesh(new THREE.BoxGeometry(2, 1.5, 2), matBuilding);
-        gate.position.set(-10, 0.75, 10);
+        // --- 2026: Security & Utilities ---
+        const gate = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 3), matBuilding);
+        gate.position.set(-25, getElevation(-25, 15) + 1, 15);
         p2026.add(gate);
 
-        // 2028: Orbital Complex & Rocket
-        const orbPad = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 0.5, 32), matConcrete);
-        orbPad.position.set(4, 0.25, 4);
-        p2028.add(orbPad);
+        const hub = new THREE.Mesh(new THREE.BoxGeometry(8, 3.5, 6), matBuilding);
+        hub.position.set(-5, getElevation(-5, 12) + 1.75, 12);
+        p2026.add(hub);
 
-        const hif = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 6), matBuilding);
-        hif.position.set(-6, 2, 4);
+        // --- 2028: Pad 1 (Isar/RDX) & HIF ---
+        const pad1 = buildPad(5, -2, 1);
+        const rocket1 = buildRocket(1);
+        rocket1.position.set(5, getElevation(5, -2) + 1, -2);
+        p2028.add(pad1, rocket1);
+
+        const hif = new THREE.Mesh(new THREE.BoxGeometry(12, 5, 8), matBuilding);
+        hif.position.set(-10, getElevation(-10, 5) + 2.5, 5);
         p2028.add(hif);
 
-        const rocket = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 7, 16), matRocket);
-        rocket.position.set(4, 4, 4); 
-        p2028.add(rocket);
+        // --- 2032: Pad 2 (Orbital Expansion) ---
+        const pad2 = buildPad(15, 8, 1.1);
+        const rocket2 = buildRocket(1.1);
+        rocket2.position.set(15, getElevation(15, 8) + 1, 8);
+        p2032.add(pad2, rocket2);
 
-        const nose = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.5, 16), matRocket);
-        nose.position.set(4, 8.25, 4);
-        p2028.add(nose);
+        // HIF Extension
+        const hifExt = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 8), matBuilding);
+        hifExt.position.set(-21, getElevation(-21, 5) + 2.5, 5);
+        p2032.add(hifExt);
 
-        scene.add(p2024, p2026, p2028);
-        phasesRef.current = { p2024, p2026, p2028 };
+        // --- 2035: Pad 3 (Heavy) & Pad 4 (Commercial) ---
+        const pad3 = buildPad(-5, -18, 1.5);
+        const rocket3 = buildRocket(1.5, "heavy");
+        rocket3.position.set(-5, getElevation(-5, -18) + 1.5, -18);
+        p2035.add(pad3, rocket3);
+
+        const pad4 = buildPad(12, -15, 1);
+        p2035.add(pad4); // Empty pad ready for payload
+
+        scene.add(p2024, p2026, p2028, p2032, p2035);
+        phasesRef.current = { p2024, p2026, p2028, p2032, p2035 };
 
         // Animation Loop
         let frameId;
@@ -262,32 +354,32 @@
       }, []);
 
       useEffect(() => {
-        const { p2024, p2026, p2028 } = phasesRef.current;
+        const { p2024, p2026, p2028, p2032, p2035 } = phasesRef.current;
         if (p2024) {
           p2024.visible = year >= 2024;
           p2026.visible = year >= 2026;
           p2028.visible = year >= 2028;
+          p2032.visible = year >= 2032;
+          p2035.visible = year >= 2035;
         }
       }, [year]);
 
-      return <div ref={mountRef} className="w-full h-[450px] rounded-xl overflow-hidden border border-slate-800 cursor-move bg-slate-950" />;
+      return <div ref={mountRef} className="w-full h-[500px] rounded-xl overflow-hidden border border-slate-800 cursor-move bg-slate-950 shadow-inner" />;
     }
 
     function SpaceportApp() {
-      // Default to the 3D tab, but all others are fully intact
       const [activeTab, setActiveTab] = useState('3d-build');
       const [selectedRocketId, setSelectedRocketId] = useState('spectrum-1');
       const [distanceKm, setDistanceKm] = useState(4.2);
       const [gpsActive, setGpsActive] = useState(false);
       const [gpsCoords, setGpsCoords] = useState(null);
       
-      // State for the 3D slider
-      const [buildYear, setBuildYear] = useState(2028);
+      // Update build slider state to default to 2035 to show full complex
+      const [buildYear, setBuildYear] = useState(2035);
 
       const activeRocket = ROCKET_MANIFEST.find(r => r.id === selectedRocketId) || ROCKET_MANIFEST[0];
       const radii = calculateRadii(activeRocket.propellantTons);
       const status = getSafetyStatus(distanceKm, radii);
-
       const canvasRef = useRef(null);
 
       const requestGPS = () => {
@@ -310,91 +402,47 @@
         );
       };
 
-      // HTML5 Canvas Radar Render Loop
+      // Canvas Radar Render Loop
       useEffect(() => {
-        // Only run if the safety tab is active
         if (activeTab !== 'safety') return;
-        
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
-        const w = canvas.width;
-        const h = canvas.height;
+        const w = canvas.width, h = canvas.height;
         const center = { x: w / 2, y: h / 2 };
         const maxRangeKm = Math.max(radii.notmarRadius * 1.35, distanceKm * 1.25);
         const scale = (w / 2 - 20) / maxRangeKm;
 
         ctx.clearRect(0, 0, w, h);
 
-        // Distance range rings
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
         for (let i = 1; i <= 4; i++) {
-          ctx.beginPath();
-          ctx.arc(center.x, center.y, (w / 2 - 20) * (i / 4), 0, Math.PI * 2);
-          ctx.stroke();
+          ctx.beginPath(); ctx.arc(center.x, center.y, (w / 2 - 20) * (i / 4), 0, Math.PI * 2); ctx.stroke();
         }
 
-        // NOTMAR Buffer (Blue)
-        ctx.fillStyle = 'rgba(59, 130, 246, 0.08)';
-        ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
-        ctx.beginPath();
-        ctx.arc(center.x, center.y, radii.notmarRadius * scale, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        ctx.fillStyle = 'rgba(59, 130, 246, 0.08)'; ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
+        ctx.beginPath(); ctx.arc(center.x, center.y, radii.notmarRadius * scale, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
-        // Acoustic 140 dB Envelope (Yellow)
-        ctx.fillStyle = 'rgba(234, 179, 8, 0.12)';
-        ctx.strokeStyle = 'rgba(234, 179, 8, 0.6)';
-        ctx.beginPath();
-        ctx.arc(center.x, center.y, radii.acousticRadius * scale, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        ctx.fillStyle = 'rgba(234, 179, 8, 0.12)'; ctx.strokeStyle = 'rgba(234, 179, 8, 0.6)';
+        ctx.beginPath(); ctx.arc(center.x, center.y, radii.acousticRadius * scale, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
-        // Overpressure 1.0 psi Shock Envelope (Orange)
-        ctx.fillStyle = 'rgba(249, 115, 22, 0.18)';
-        ctx.strokeStyle = 'rgba(249, 115, 22, 0.7)';
-        ctx.beginPath();
-        ctx.arc(center.x, center.y, radii.overpressureRadius * scale, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        ctx.fillStyle = 'rgba(249, 115, 22, 0.18)'; ctx.strokeStyle = 'rgba(249, 115, 22, 0.7)';
+        ctx.beginPath(); ctx.arc(center.x, center.y, radii.overpressureRadius * scale, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
-        // Blast Fragmentation Zone (Red)
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.35)';
-        ctx.strokeStyle = '#ef4444';
-        ctx.beginPath();
-        ctx.arc(center.x, center.y, radii.blastRadius * scale, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.35)'; ctx.strokeStyle = '#ef4444';
+        ctx.beginPath(); ctx.arc(center.x, center.y, radii.blastRadius * scale, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
-        // Launch Pad Center Point
-        ctx.fillStyle = '#38bdf8';
-        ctx.beginPath();
-        ctx.arc(center.x, center.y, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.font = '10px monospace';
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillText("PAD (LC-1)", center.x + 8, center.y + 3);
+        ctx.fillStyle = '#38bdf8'; ctx.beginPath(); ctx.arc(center.x, center.y, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.font = '10px monospace'; ctx.fillStyle = '#94a3b8'; ctx.fillText("PAD (LC-1)", center.x + 8, center.y + 3);
 
-        // Observer Position Marker
-        const obsX = center.x;
-        const obsY = center.y - (distanceKm * scale);
-        ctx.fillStyle = '#a855f7';
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(obsX, obsY, 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.font = 'bold 11px monospace';
-        ctx.fillStyle = '#f8fafc';
-        ctx.fillText(`OBSERVER (${distanceKm} km)`, obsX + 10, obsY + 4);
+        const obsX = center.x, obsY = center.y - (distanceKm * scale);
+        ctx.fillStyle = '#a855f7'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(obsX, obsY, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.font = 'bold 11px monospace'; ctx.fillStyle = '#f8fafc'; ctx.fillText(`OBSERVER (${distanceKm} km)`, obsX + 10, obsY + 4);
       }, [distanceKm, radii, activeTab]);
 
       return (
         <div className="min-h-screen flex flex-col max-w-6xl mx-auto px-4 py-6">
-          {/* Header & Navigation */}
           <header className="border-b border-slate-800 pb-5 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <div className="flex items-center gap-2">
@@ -406,141 +454,82 @@
             </div>
 
             <div className="flex flex-wrap bg-slate-900 border border-slate-800 rounded-lg p-1 text-sm font-semibold w-full md:w-auto">
-              <button 
-                onClick={() => setActiveTab('3d-build')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-md transition ${activeTab === '3d-build' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white'}`}>
-                3D Build Phase
-              </button>
-              <button 
-                onClick={() => setActiveTab('safety')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-md transition ${activeTab === 'safety' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white'}`}>
-                Proximity Calculator
-              </button>
-              <button 
-                onClick={() => setActiveTab('manifest')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-md transition ${activeTab === 'manifest' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white'}`}>
-                Rocket Manifest
-              </button>
-              <button 
-                onClick={() => setActiveTab('development')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-md transition ${activeTab === 'development' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white'}`}>
-                Spaceport Status
-              </button>
+              <button onClick={() => setActiveTab('3d-build')} className={`flex-1 md:flex-none px-4 py-2 rounded-md transition ${activeTab === '3d-build' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white'}`}>3D Master Plan</button>
+              <button onClick={() => setActiveTab('safety')} className={`flex-1 md:flex-none px-4 py-2 rounded-md transition ${activeTab === 'safety' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white'}`}>Proximity Calculator</button>
+              <button onClick={() => setActiveTab('manifest')} className={`flex-1 md:flex-none px-4 py-2 rounded-md transition ${activeTab === 'manifest' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white'}`}>Rocket Manifest</button>
+              <button onClick={() => setActiveTab('development')} className={`flex-1 md:flex-none px-4 py-2 rounded-md transition ${activeTab === 'development' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:text-white'}`}>Spaceport Status</button>
             </div>
           </header>
 
-          {/* TAB 1: SIMPLISTIC 3D BUILD VIEWER (NEW) */}
+          {/* TAB 1: UPGRADED 3D BUILD VIEWER */}
           {activeTab === '3d-build' && (
             <div className="space-y-6">
               <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-lg">
-                <h2 className="text-xs font-mono uppercase text-cyan-400 mb-3 font-bold tracking-wider">Site Construction Timeline</h2>
-                <p className="text-sm text-slate-400 mb-4">A lightweight, stylized representation of pad integration. Click and drag to orbit.</p>
+                <h2 className="text-xs font-mono uppercase text-cyan-400 mb-2 font-bold tracking-wider">Canso Site Master Plan (2022 - 2035)</h2>
+                <p className="text-sm text-slate-400 mb-4">Topographic expansion mapping 4 commercial launch pads. Click and drag to orbit. Scroll to zoom.</p>
                 
-                <SimplisticThreeViewer year={buildYear} />
+                <EnhancedThreeViewer year={buildYear} />
 
                 <div className="mt-6 p-4 bg-slate-950 rounded-lg border border-slate-800">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-mono text-slate-400">Scrub Timeline</span>
-                    <span className="text-sm font-mono text-cyan-400 font-bold bg-slate-800 px-2 py-1 rounded">Year: {buildYear}</span>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-xs font-mono text-slate-400">Scrub Infrastructure Timeline</span>
+                    <span className="text-sm font-mono text-cyan-400 font-bold bg-slate-800 border border-slate-700 px-3 py-1 rounded">Year: {buildYear}</span>
                   </div>
                   <input 
                     type="range" 
                     min="2022" 
-                    max="2028" 
-                    step="2" 
+                    max="2035" 
+                    step="1" 
                     value={buildYear}
                     onChange={(e) => setBuildYear(parseInt(e.target.value))}
                     className="w-full accent-cyan-400 h-2 bg-slate-800 rounded-lg cursor-pointer"
                   />
-                  <div className="flex justify-between text-[10px] font-mono text-slate-500 mt-2 px-1">
-                    <span>2022 (Permits)</span>
-                    <span>2024 (Suborbital)</span>
-                    <span>2026 (Utilities)</span>
-                    <span>2028 (Orbital Pad)</span>
+                  <div className="flex justify-between text-[10px] sm:text-xs font-mono text-slate-500 mt-3 px-1">
+                    <span className={buildYear >= 2024 && buildYear < 2028 ? "text-cyan-400" : ""}>2024 (Suborbital)</span>
+                    <span className={buildYear >= 2028 && buildYear < 2032 ? "text-cyan-400" : ""}>2028 (Pad 1)</span>
+                    <span className={buildYear >= 2032 && buildYear < 2035 ? "text-cyan-400" : ""}>2032 (Pad 2)</span>
+                    <span className={buildYear === 2035 ? "text-cyan-400" : ""}>2035 (4-Pad Complex)</span>
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 2: PROXIMITY CALCULATOR (FULLY RESTORED) */}
+          {/* TAB 2: PROXIMITY CALCULATOR */}
           {activeTab === 'safety' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-5 space-y-6">
                 <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-lg">
                   <h2 className="text-xs font-mono uppercase text-cyan-400 mb-3 font-bold tracking-wider">Mission Configuration</h2>
-                  <select 
-                    value={selectedRocketId}
-                    onChange={(e) => setSelectedRocketId(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm text-white font-medium focus:ring-2 focus:ring-cyan-400 focus:outline-none"
-                  >
-                    {ROCKET_MANIFEST.map(r => (
-                      <option key={r.id} value={r.id}>
-                        {r.name} • {r.operator} ({r.propellantTons}t Propellant)
-                      </option>
-                    ))}
+                  <select value={selectedRocketId} onChange={(e) => setSelectedRocketId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm text-white font-medium focus:ring-2 focus:ring-cyan-400 focus:outline-none">
+                    {ROCKET_MANIFEST.map(r => <option key={r.id} value={r.id}>{r.name} • {r.operator} ({r.propellantTons}t)</option>)}
                   </select>
-
                   <div className="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-400 space-y-1 font-mono">
-                    <div className="flex justify-between">
-                      <span>Propellant Mass:</span>
-                      <span className="text-white font-semibold">{activeRocket.propellantTons} Metric Tons</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Payload Mass:</span>
-                      <span className="text-white font-semibold">{activeRocket.payloadKg.toLocaleString()} kg</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Target Profile:</span>
-                      <span className="text-cyan-400 font-semibold">{activeRocket.orbit}</span>
-                    </div>
+                    <div className="flex justify-between"><span>Propellant Mass:</span><span className="text-white font-semibold">{activeRocket.propellantTons} Metric Tons</span></div>
+                    <div className="flex justify-between"><span>Payload Mass:</span><span className="text-white font-semibold">{activeRocket.payloadKg.toLocaleString()} kg</span></div>
+                    <div className="flex justify-between"><span>Target Profile:</span><span className="text-cyan-400 font-semibold">{activeRocket.orbit}</span></div>
                   </div>
                 </div>
 
                 <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-lg">
                   <div className="flex justify-between items-center mb-3">
                     <h2 className="text-xs font-mono uppercase text-cyan-400 font-bold tracking-wider">Observer Distance</h2>
-                    <button 
-                      onClick={requestGPS}
-                      className="text-xs bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 px-2.5 py-1 rounded transition flex items-center gap-1 font-medium"
-                    >
-                      📍 Live GPS
-                    </button>
+                    <button onClick={requestGPS} className="text-xs bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 px-2.5 py-1 rounded transition flex items-center gap-1 font-medium">📍 Live GPS</button>
                   </div>
-
                   <div className="space-y-4">
                     <div>
                       <div className="flex justify-between items-baseline mb-1">
                         <span className="text-xs text-slate-400">Distance to Canso Pad:</span>
                         <span className="text-lg font-mono font-bold text-cyan-400">{distanceKm} km</span>
                       </div>
-                      <input 
-                        type="range" 
-                        min="0.2" 
-                        max="25" 
-                        step="0.1" 
-                        value={distanceKm}
-                        onChange={(e) => {
-                          setDistanceKm(parseFloat(e.target.value));
-                          setGpsActive(false);
-                        }}
-                        className="w-full accent-cyan-400 h-2 bg-slate-800 rounded-lg cursor-pointer"
-                      />
+                      <input type="range" min="0.2" max="25" step="0.1" value={distanceKm} onChange={(e) => { setDistanceKm(parseFloat(e.target.value)); setGpsActive(false); }} className="w-full accent-cyan-400 h-2 bg-slate-800 rounded-lg cursor-pointer" />
                     </div>
-
-                    {gpsActive && gpsCoords && (
-                      <div className="bg-slate-950 p-2.5 rounded border border-slate-800 text-xs font-mono text-slate-300">
-                        GPS Active: {gpsCoords.lat.toFixed(4)}°N, {gpsCoords.lng.toFixed(4)}°W
-                      </div>
-                    )}
                   </div>
                 </div>
 
                 <div className={`p-4 rounded-xl border ${status.color} shadow-lg space-y-2`}>
                   <div className="flex items-center gap-2">
-                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded text-white ${status.badge}`}>
-                      {status.level}
-                    </span>
+                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded text-white ${status.badge}`}>{status.level}</span>
                     <span className="text-xs font-mono font-bold">RANGE: {distanceKm} KM</span>
                   </div>
                   <p className="text-sm font-semibold leading-snug">{status.text}</p>
@@ -553,75 +542,40 @@
                     <h2 className="text-xs font-mono uppercase text-cyan-400 font-bold tracking-wider">Perimeter Radar Scope</h2>
                     <span className="text-xs font-mono text-slate-400">Yield: {activeRocket.propellantTons}t Propellant</span>
                   </div>
-                  <canvas 
-                    ref={canvasRef} 
-                    width={380} 
-                    height={380} 
-                    className="w-full max-w-[380px] bg-slate-950 rounded-xl border border-slate-800/80 shadow-inner"
-                  />
+                  <canvas ref={canvasRef} width={380} height={380} className="w-full max-w-[380px] bg-slate-950 rounded-xl border border-slate-800/80 shadow-inner" />
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full mt-4 text-[11px] font-mono text-center">
-                    <div className="p-2 rounded bg-red-950/40 border border-red-900/60 text-red-300">
-                      Blast: <strong>{radii.blastRadius} km</strong>
-                    </div>
-                    <div className="p-2 rounded bg-orange-950/40 border border-orange-900/60 text-orange-300">
-                      Overpress: <strong>{radii.overpressureRadius} km</strong>
-                    </div>
-                    <div className="p-2 rounded bg-yellow-950/40 border border-yellow-900/60 text-yellow-300">
-                      Acoustic: <strong>{radii.acousticRadius} km</strong>
-                    </div>
-                    <div className="p-2 rounded bg-blue-950/40 border border-blue-900/60 text-blue-300">
-                      NOTMAR: <strong>{radii.notmarRadius} km</strong>
-                    </div>
+                    <div className="p-2 rounded bg-red-950/40 border border-red-900/60 text-red-300">Blast: <strong>{radii.blastRadius} km</strong></div>
+                    <div className="p-2 rounded bg-orange-950/40 border border-orange-900/60 text-orange-300">Overpress: <strong>{radii.overpressureRadius} km</strong></div>
+                    <div className="p-2 rounded bg-yellow-950/40 border border-yellow-900/60 text-yellow-300">Acoustic: <strong>{radii.acousticRadius} km</strong></div>
+                    <div className="p-2 rounded bg-blue-950/40 border border-blue-900/60 text-blue-300">NOTMAR: <strong>{radii.notmarRadius} km</strong></div>
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 3: ROCKET MANIFEST (FULLY RESTORED) */}
+          {/* TAB 3: ROCKET MANIFEST */}
           {activeTab === 'manifest' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {ROCKET_MANIFEST.map((r) => (
                 <div key={r.id} className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 flex flex-col justify-between hover:border-slate-700 transition">
                   <div className="space-y-3">
                     <div className="flex justify-between items-start">
-                      <span className="text-xs font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 px-2 py-0.5 rounded">
-                        NET {r.targetDate}
-                      </span>
-                      <span className="text-xs text-emerald-400 font-bold bg-emerald-950/40 px-2 py-0.5 rounded">
-                        {r.status}
-                      </span>
+                      <span className="text-xs font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 px-2 py-0.5 rounded">NET {r.targetDate}</span>
+                      <span className="text-xs text-emerald-400 font-bold bg-emerald-950/40 px-2 py-0.5 rounded">{r.status}</span>
                     </div>
                     <div>
                       <h3 className="text-lg font-bold text-white leading-tight">{r.name}</h3>
                       <p className="text-xs text-slate-400 font-mono mt-0.5">{r.operator}</p>
                     </div>
                     <div className="space-y-1.5 text-xs text-slate-300 pt-3 border-t border-slate-800 font-mono">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Class:</span>
-                        <span className="text-white font-bold">{r.missionType.toUpperCase()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Propellant Load:</span>
-                        <span className="text-white font-bold">{r.propellantTons} Metric Tons</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Payload Capacity:</span>
-                        <span className="text-white font-bold">{r.payloadKg.toLocaleString()} kg</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Trajectory Profile:</span>
-                        <span className="text-white font-bold">{r.orbit}</span>
-                      </div>
+                      <div className="flex justify-between"><span className="text-slate-400">Class:</span><span className="text-white font-bold">{r.missionType.toUpperCase()}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-400">Propellant Load:</span><span className="text-white font-bold">{r.propellantTons} Metric Tons</span></div>
+                      <div className="flex justify-between"><span className="text-slate-400">Payload Capacity:</span><span className="text-white font-bold">{r.payloadKg.toLocaleString()} kg</span></div>
+                      <div className="flex justify-between"><span className="text-slate-400">Trajectory Profile:</span><span className="text-white font-bold">{r.orbit}</span></div>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => {
-                      setSelectedRocketId(r.id);
-                      setActiveTab('safety');
-                    }}
-                    className="mt-6 w-full py-2 bg-slate-800 hover:bg-cyan-500 hover:text-slate-950 border border-slate-700 text-cyan-300 text-xs font-bold rounded-lg transition"
-                  >
+                  <button onClick={() => { setSelectedRocketId(r.id); setActiveTab('safety'); }} className="mt-6 w-full py-2 bg-slate-800 hover:bg-cyan-500 hover:text-slate-950 border border-slate-700 text-cyan-300 text-xs font-bold rounded-lg transition">
                     Select & Calculate Safety →
                   </button>
                 </div>
@@ -629,7 +583,7 @@
             </div>
           )}
 
-          {/* TAB 4: CIVIL MILESTONES (FULLY RESTORED) */}
+          {/* TAB 4: CIVIL MILESTONES */}
           {activeTab === 'development' && (
             <div className="space-y-4">
               <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl text-xs text-slate-300 flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between">
@@ -646,10 +600,7 @@
                     <h3 className="text-sm font-bold text-white">{f.name}</h3>
                     <p className="text-xs text-slate-400">{f.desc}</p>
                     <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full transition-all duration-700 ${f.progress === 100 ? 'bg-emerald-500' : 'bg-cyan-500'}`}
-                        style={{ width: `${f.progress}%` }}
-                      />
+                      <div className={`h-full transition-all duration-700 ${f.progress === 100 ? 'bg-emerald-500' : 'bg-cyan-500'}`} style={{ width: `${f.progress}%` }} />
                     </div>
                   </div>
                 ))}
@@ -657,7 +608,6 @@
             </div>
           )}
 
-          {/* Footer */}
           <footer className="mt-auto pt-8 border-t border-slate-900 text-center text-xs font-mono text-slate-500">
             Spaceport Nova Scotia Safety Operations • Maritime Launch Services
           </footer>
