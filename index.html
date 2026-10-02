@@ -147,7 +147,7 @@
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x020617); 
-        scene.fog = new THREE.FogExp2(0x020617, 0.015);
+        // Fog removed so distance visibility doesn't fade into black
 
         const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
         camera.position.set(45, 30, 45);
@@ -164,9 +164,9 @@
         controls.minDistance = 15;
         controls.maxDistance = 150;
 
-        // Lighting
-        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        // Lighting adjusted for better brightness and no dark spots
+        scene.add(new THREE.AmbientLight(0xffffff, 0.95)); // Increased ambient light
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.8); // Increased directional light
         dirLight.position.set(20, 50, 20);
         dirLight.castShadow = true;
         dirLight.shadow.mapSize.width = 2048;
