@@ -312,17 +312,6 @@
           if (currentContainer && currentContainer.contains(renderer.domElement)) {
             currentContainer.removeChild(renderer.domElement);
           }
-          
-          scene.traverse((object) => {
-            if (object.isMesh || object.isLine) {
-              if (object.geometry) object.geometry.dispose();
-              if (object.material) {
-                if (Array.isArray(object.material)) object.material.forEach(m => m.dispose());
-                else object.material.dispose();
-              }
-            }
-          });
-          
           renderer.dispose();
         };
       }, []);
@@ -380,12 +369,12 @@
 
       const milestones = isSuborbital ? [
         { label: "MAX-Q", alt: "15 km", t: findT(15, 0.5), align: "start", dx: 8, dy: 14 },
-        { label: "APOGEE / KARMAN", alt: "100 km", t: 0.5, align: "middle", dx: 0, dy: -12 }
+        { label: "APOGEE / KARMAN", alt: "100 km", t: 0.5, align: "middle", dx: 0, dy: -14 }
       ] : [
         { label: "MAX-Q", alt: "15 km", t: findT(15, 0.3), align: "start", dx: 8, dy: 14 },
         { label: "KARMAN LINE", alt: "100 km", t: findT(100, 0.5), align: "start", dx: 8, dy: -8 },
         { label: "MECO / SEP", alt: "150 km", t: findT(150, 0.7), align: "start", dx: 8, dy: 14 },
-        { label: "ORBIT INSERTION", alt: "500 km", t: 1.0, align: "end", dx: -8, dy: -12 }
+        { label: "ORBIT INSERTION", alt: "500 km", t: 1.0, align: "end", dx: -8, dy: -14 }
       ];
 
       const t = Math.max(0, Math.min(1, progress / 100));
@@ -409,29 +398,29 @@
             {maxY >= 100 && (
               <g>
                 <line x1="50" y1={mapY(100)} x2="900" y2={mapY(100)} stroke="#334155" strokeDasharray="4 4" strokeWidth="1" />
-                <text x="900" y={mapY(100) - 5} fill="#64748b" fontSize="10" textAnchor="end" className="font-mono">KARMAN LINE (100km)</text>
+                <text x="900" y={mapY(100) - 6} fill="#64748b" fontSize="12" textAnchor="end" className="font-mono">KARMAN LINE (100km)</text>
               </g>
             )}
             
-            <text x="40" y="265" fill="#475569" fontSize="11" textAnchor="end" className="font-mono">0km</text>
-            <text x="40" y="45" fill="#475569" fontSize="11" textAnchor="end" className="font-mono">{maxY}km</text>
-            <text x="900" y="280" fill="#475569" fontSize="11" textAnchor="end" className="font-mono">Downrange ({maxX}km)</text>
+            <text x="40" y="265" fill="#475569" fontSize="12" textAnchor="end" className="font-mono">0km</text>
+            <text x="40" y="45" fill="#475569" fontSize="12" textAnchor="end" className="font-mono">{maxY}km</text>
+            <text x="900" y="280" fill="#475569" fontSize="12" textAnchor="end" className="font-mono">Downrange ({maxX}km)</text>
 
             <polyline points={svgPath} fill="none" stroke="#c026d3" strokeWidth="3" />
 
-            {/* Static Altitude Milestone Nodes */}
+            {/* Static Altitude Milestone Nodes (Enlarged Text) */}
             {milestones.map((m, idx) => {
               const pt = curve.getPoint(m.t);
               const px = mapX(pt.x);
               const py = mapY(pt.y);
               return (
                 <g key={idx}>
-                  <circle cx={px} cy={py} r="4" fill="#38bdf8" stroke="#091321" strokeWidth="2" />
+                  <circle cx={px} cy={py} r="5" fill="#38bdf8" stroke="#091321" strokeWidth="2" />
                   <text 
                     x={px + m.dx} 
                     y={py + m.dy} 
                     fill="#94a3b8" 
-                    fontSize="9" 
+                    fontSize="12" 
                     textAnchor={m.align} 
                     className="font-mono font-bold"
                   >
@@ -445,16 +434,16 @@
             <line x1={rocketPx} y1={rocketPy} x2={rocketPx} y2="260" stroke="#38bdf8" strokeDasharray="3 3" opacity="0.5" strokeWidth="1.5" />
             <ellipse cx={rocketPx} cy="260" rx="6" ry="2" fill="#38bdf8" opacity="0.8" />
 
-            {/* Live Floating Altitude Badge over Rocket */}
-            <g transform={`translate(${rocketPx}, ${rocketPy - 24})`}>
-              <rect x="-26" y="-8" width="52" height="16" rx="4" fill="#091321" stroke="#38bdf8" strokeWidth="1" opacity="0.95" />
-              <text x="0" y="4" fill="#38bdf8" fontSize="9" fontWeight="bold" textAnchor="middle" className="font-mono">{currentAlt} km</text>
+            {/* Live Floating Altitude Badge over Rocket (Enlarged Text & Box) */}
+            <g transform={`translate(${rocketPx}, ${rocketPy - 30})`}>
+              <rect x="-32" y="-12" width="64" height="22" rx="4" fill="#091321" stroke="#38bdf8" strokeWidth="1" opacity="0.95" />
+              <text x="0" y="4" fill="#38bdf8" fontSize="12" fontWeight="bold" textAnchor="middle" className="font-mono">{currentAlt} km</text>
             </g>
             
             {/* Rocket Telemetry Marker */}
             <g transform={`translate(${rocketPx}, ${rocketPy}) rotate(${rotation})`}>
-              <polygon points="-8,-5 12,0 -8,5 -4,0" fill="#22d3ee" />
-              <circle cx="-8" cy="0" r="5" fill="#c026d3" opacity="0.4" />
+              <polygon points="-10,-6 14,0 -10,6 -5,0" fill="#22d3ee" />
+              <circle cx="-10" cy="0" r="6" fill="#c026d3" opacity="0.4" />
             </g>
           </svg>
         </div>
@@ -550,17 +539,17 @@
         groundReticle.rotation.x = -Math.PI / 2;
         scene.add(groundReticle);
 
-        // Procedural Billboard Text Sprite Generator
+        // Procedural Billboard Text Sprite Generator (Double Resolution)
         const makeTextSprite = (text, color = '#38bdf8') => {
           const canvas = document.createElement('canvas');
-          canvas.width = 256; canvas.height = 64;
+          canvas.width = 512; canvas.height = 128;
           const ctx = canvas.getContext('2d');
           
           ctx.fillStyle = 'rgba(9, 19, 33, 0.85)';
           ctx.strokeStyle = '#233247';
-          ctx.lineWidth = 3;
+          ctx.lineWidth = 4;
           ctx.beginPath();
-          const x = 6, y = 6, w = 244, h = 52, r = 10;
+          const x = 12, y = 12, w = 488, h = 104, r = 20;
           ctx.moveTo(x + r, y);
           ctx.lineTo(x + w - r, y);
           ctx.quadraticCurveTo(x + w, y, x + w, y + r);
@@ -575,15 +564,16 @@
           ctx.stroke();
 
           ctx.fillStyle = color;
-          ctx.font = 'bold 22px monospace';
+          ctx.font = 'bold 44px monospace'; // Much larger font
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(text, 128, 32);
+          ctx.fillText(text, 256, 64);
 
           const texture = new THREE.CanvasTexture(canvas);
           const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
           const sprite = new THREE.Sprite(material);
-          sprite.scale.set(markerScale * 3.5, markerScale * 0.9, 1);
+          // Scale sprite up to match the new high-res canvas
+          sprite.scale.set(markerScale * 6.0, markerScale * 1.5, 1);
           return sprite;
         };
 
@@ -608,7 +598,7 @@
         gateMaxQ.lookAt(posMaxQ.clone().add(tanMaxQ));
         scene.add(gateMaxQ);
         const spriteMaxQ = makeTextSprite('MAX-Q: 15 km', '#22d3ee');
-        spriteMaxQ.position.copy(posMaxQ.clone().add(new THREE.Vector3(0, markerScale * 1.6, 0)));
+        spriteMaxQ.position.copy(posMaxQ.clone().add(new THREE.Vector3(0, markerScale * 2.2, 0)));
         scene.add(spriteMaxQ);
 
         // Gate 2: Karman Line or Apogee (~100km)
@@ -621,7 +611,7 @@
         scene.add(gateKarman);
         const labelKarman = rocket.missionType === 'Suborbital' ? 'APOGEE: 100 km' : 'KARMAN: 100 km';
         const spriteKarman = makeTextSprite(labelKarman, '#c026d3');
-        spriteKarman.position.copy(posKarman.clone().add(new THREE.Vector3(0, markerScale * 1.6, 0)));
+        spriteKarman.position.copy(posKarman.clone().add(new THREE.Vector3(0, markerScale * 2.2, 0)));
         scene.add(spriteKarman);
 
         // Orbital additional gates: MECO (~150km)
@@ -634,7 +624,7 @@
           gateMeco.lookAt(posMeco.clone().add(tanMeco));
           scene.add(gateMeco);
           const spriteMeco = makeTextSprite('MECO: 150 km', '#38bdf8');
-          spriteMeco.position.copy(posMeco.clone().add(new THREE.Vector3(0, markerScale * 1.6, 0)));
+          spriteMeco.position.copy(posMeco.clone().add(new THREE.Vector3(0, markerScale * 2.2, 0)));
           scene.add(spriteMeco);
         }
 
