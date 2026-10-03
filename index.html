@@ -341,17 +341,15 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- NEW: 2D TELEMETRY ARC VIEWER ---
+    // --- 2D TELEMETRY ARC VIEWER ---
     function TelemetryArcViewer2D({ rocket, progress }) {
       const isSuborbital = rocket.missionType === 'Suborbital';
       const maxX = isSuborbital ? 100 : 2000;
       const maxY = isSuborbital ? 100 : 500;
 
-      // Map mathematical coordinates to SVG viewport (inverted Y axis for rendering)
       const mapX = (x) => 50 + (x / maxX) * 850;
       const mapY = (y) => 260 - (y / maxY) * 220; 
 
-      // Use Three.js spline math to generate the exact same curve points
       const points3D = isSuborbital ? [
         new THREE.Vector3(0, 0, 0),
         new THREE.Vector3(15, 50, 0),
@@ -376,21 +374,16 @@
       let rotation = 0;
       if (t < 1) {
         const tangent = curve.getTangent(t).normalize();
-        // Calculate 2D rotation for the SVG marker (SVG Y axis is flipped)
         rotation = Math.atan2(-tangent.y, tangent.x) * (180 / Math.PI); 
       }
 
       return (
         <div className="w-full h-[550px] bg-[#091321] relative flex items-center justify-center pointer-events-none">
           <svg viewBox="0 0 950 300" className="w-full h-full">
-            {/* Grid Box */}
             <line x1="50" y1="260" x2="900" y2="260" stroke="#1e293b" strokeWidth="2" />
             <line x1="50" y1="40" x2="50" y2="260" stroke="#1e293b" strokeWidth="2" />
-            
-            {/* Background Grid Lines */}
             <line x1="50" y1="150" x2="900" y2="150" stroke="#0f172a" strokeWidth="1" />
             
-            {/* Karman Line (100km) */}
             {maxY >= 100 && (
               <g>
                 <line x1="50" y1={mapY(100)} x2="900" y2={mapY(100)} stroke="#334155" strokeDasharray="4 4" strokeWidth="1" />
@@ -398,15 +391,12 @@
               </g>
             )}
             
-            {/* Axis Labels */}
             <text x="40" y="265" fill="#475569" fontSize="11" textAnchor="end" className="font-mono">0km</text>
             <text x="40" y="45" fill="#475569" fontSize="11" textAnchor="end" className="font-mono">{maxY}km</text>
             <text x="900" y="280" fill="#475569" fontSize="11" textAnchor="end" className="font-mono">Downrange ({maxX}km)</text>
 
-            {/* Flight Path Arc */}
             <polyline points={svgPath} fill="none" stroke="#c026d3" strokeWidth="3" />
             
-            {/* Rocket Telemetry Marker */}
             <g transform={`translate(${mapX(currentPoint.x)}, ${mapY(currentPoint.y)}) rotate(${rotation})`}>
               <polygon points="-8,-5 12,0 -8,5 -4,0" fill="#22d3ee" />
               <circle cx="-8" cy="0" r="5" fill="#c026d3" opacity="0.4" />
@@ -416,7 +406,7 @@
       );
     }
 
-    // --- 3D TELEMETRY ARC VIEWER ---
+    // --- UPGRADED 3D TELEMETRY ARC VIEWER WITH GATES & PLUMB LINE ---
     function TelemetryArcViewer3D({ rocket, progress }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
@@ -493,7 +483,48 @@
         const grid = new THREE.GridHelper(gridScale, 40, 0x1e293b, 0x0f172a);
         scene.add(grid);
 
-        sceneRef.current = { curve, markerGroup };
+        // Ground Projection Plumb Line & Reticle
+        const plumbMat = new THREE.LineDashedMaterial({ color: 0x38bdf8, dashSize: markerScale, gapSize: markerScale, transparent: true, opacity: 0.6 });
+        const plumbGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)]);
+        const plumbLine = new THREE.Line(plumbGeo, plumbMat);
+        scene.add(plumbLine);
+
+        const reticleGeo = new THREE.RingGeometry(markerScale * 0.8, markerScale * 1.2, 32);
+        const reticleMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
+        const groundReticle = new THREE.Mesh(reticleGeo, reticleMat);
+        groundReticle.rotation.x = -Math.PI / 2;
+        scene.add(groundReticle);
+
+        // Spatial Milestone Gateways (Max-Q and Karman Line)
+        const findTForY = (targetY) => {
+          let bestT = 0, minDiff = Infinity;
+          for (let t = 0; t <= 1; t += 0.005) {
+            const y = curve.getPoint(t).y;
+            const diff = Math.abs(y - targetY);
+            if (diff < minDiff) { minDiff = diff; bestT = t; }
+          }
+          return bestT;
+        };
+
+        const gateGeo = new THREE.TorusGeometry(markerScale * 1.5, markerScale * 0.08, 12, 32);
+        
+        const tMaxQ = findTForY(15);
+        const posMaxQ = curve.getPoint(tMaxQ);
+        const tanMaxQ = curve.getTangent(tMaxQ).normalize();
+        const gateMaxQ = new THREE.Mesh(gateGeo, new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.35 }));
+        gateMaxQ.position.copy(posMaxQ);
+        gateMaxQ.lookAt(posMaxQ.clone().add(tanMaxQ));
+        scene.add(gateMaxQ);
+
+        const tKarman = findTForY(100);
+        const posKarman = curve.getPoint(tKarman);
+        const tanKarman = curve.getTangent(tKarman).normalize();
+        const gateKarman = new THREE.Mesh(gateGeo, new THREE.MeshBasicMaterial({ color: 0xc026d3, transparent: true, opacity: 0.35 }));
+        gateKarman.position.copy(posKarman);
+        gateKarman.lookAt(posKarman.clone().add(tanKarman));
+        scene.add(gateKarman);
+
+        sceneRef.current = { curve, markerGroup, plumbLine, groundReticle };
 
         let frameId;
         const animate = () => {
@@ -533,10 +564,19 @@
       }, [rocket.id]); 
 
       useEffect(() => {
-        const { curve, markerGroup } = sceneRef.current;
-        if (curve && markerGroup) {
+        const { curve, markerGroup, plumbLine, groundReticle } = sceneRef.current;
+        if (curve && markerGroup && plumbLine && groundReticle) {
           const t = Math.max(0, Math.min(1, progress / 100));
           const position = curve.getPoint(t);
+          
+          // OPTIMIZED: Mutate the buffer directly instead of recreating arrays
+          const positions = plumbLine.geometry.attributes.position.array;
+          positions[0] = position.x; positions[1] = position.y; positions[2] = position.z;
+          positions[3] = position.x; positions[4] = 0.1;        positions[5] = position.z;
+          plumbLine.geometry.attributes.position.needsUpdate = true;
+          plumbLine.computeLineDistances(); 
+          
+          groundReticle.position.set(position.x, 0.2, position.z);
           
           if (t < 1) {
             const tangent = curve.getTangent(t).normalize();
@@ -561,7 +601,6 @@
     const IconX = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
     const IconInfo = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>;
 
-    // Sidebar Nav Button Component
     function NavButton({ id, icon, label, activeTab, setActiveTab, colorClass = "text-cyan-400 bg-cyan-400/10 border-cyan-400/25" }) {
       const isActive = activeTab === id;
       return (
@@ -590,7 +629,7 @@
       
       const [flightProgress, setFlightProgress] = useState(0);
       const [isFlightPlaying, setIsFlightPlaying] = useState(false);
-      const [flightView, setFlightView] = useState('2d'); // Toggle for 2D vs 3D
+      const [flightView, setFlightView] = useState('2d'); 
 
       const aboutModalRef = useRef(null);
 
@@ -770,7 +809,6 @@
               <div className="space-y-6">
                 <div className="bg-[#111a28] border border-[#233247] rounded-2xl p-6 shadow-xl">
                   
-                  {/* Title and View Toggle Row */}
                   <div className="flex justify-between items-start md:items-center mb-4 flex-col md:flex-row gap-3">
                     <div className="flex flex-col">
                       <h2 className="text-xs font-mono uppercase text-fuchsia-400 font-bold tracking-wider">Ascent Vector Tracker</h2>
