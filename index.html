@@ -955,14 +955,15 @@
                       : <TelemetryArcViewer3D rocket={activeRocket} progress={flightProgress} trajData={trajData} />
                     }
 
-                    <div className="absolute top-5 left-5 right-5 flex gap-4 pointer-events-none">
-                      <div className="bg-[#091321]/70 backdrop-blur-md border border-slate-600/30 rounded-xl p-4 flex flex-col shadow-2xl pointer-events-auto min-w-[140px]">
-                        <span className="text-[10px] text-slate-400 font-mono mb-1">EST. ALTITUDE</span>
-                        <span className="text-2xl font-bold text-cyan-400 font-mono">{currentAlt.toLocaleString()} <span className="text-sm text-slate-400">km</span></span>
+                    {/* SCALED DOWN HUD CONTAINERS (50% size reduction via padding and typography) */}
+                    <div className="absolute top-3 left-3 right-3 flex gap-2 pointer-events-none">
+                      <div className="bg-[#091321]/70 backdrop-blur-md border border-slate-600/30 rounded-lg p-2.5 flex flex-col shadow-2xl pointer-events-auto min-w-[100px]">
+                        <span className="text-[9px] text-slate-400 font-mono mb-0.5">EST. ALTITUDE</span>
+                        <span className="text-lg font-bold text-cyan-400 font-mono">{currentAlt.toLocaleString()} <span className="text-xs text-slate-400">km</span></span>
                       </div>
-                      <div className="bg-[#091321]/70 backdrop-blur-md border border-slate-600/30 rounded-xl p-4 flex flex-col shadow-2xl pointer-events-auto min-w-[140px]">
-                        <span className="text-[10px] text-slate-400 font-mono mb-1">EST. VELOCITY</span>
-                        <span className="text-2xl font-bold text-fuchsia-400 font-mono">{currentVel.toLocaleString()} <span className="text-sm text-slate-400">km/h</span></span>
+                      <div className="bg-[#091321]/70 backdrop-blur-md border border-slate-600/30 rounded-lg p-2.5 flex flex-col shadow-2xl pointer-events-auto min-w-[100px]">
+                        <span className="text-[9px] text-slate-400 font-mono mb-0.5">EST. VELOCITY</span>
+                        <span className="text-lg font-bold text-fuchsia-400 font-mono">{currentVel.toLocaleString()} <span className="text-xs text-slate-400">km/h</span></span>
                       </div>
                     </div>
 
