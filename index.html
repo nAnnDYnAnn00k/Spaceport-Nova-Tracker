@@ -91,7 +91,6 @@
 
     // --- SYNCHRONIZED TRAJECTORY MATH ---
     const getTrajectoryData = (isSuborbital) => {
-      // Explicit control points align the Catmull-Rom curve naturally with the target altitudes
       const points = isSuborbital ? [
         new THREE.Vector3(0, 0, 0),
         new THREE.Vector3(15, 50, 0),
@@ -108,7 +107,6 @@
       
       const curve = new THREE.CatmullRomCurve3(points);
       
-      // Locate the exact mathematical 't' value where the rocket crosses specific altitude boundaries
       const findT = (targetY, maxScanT = 1) => {
         let bestT = 0, minDiff = Infinity;
         for (let time = 0; time <= maxScanT; time += 0.005) {
@@ -350,7 +348,6 @@
           if (currentContainer && currentContainer.contains(renderer.domElement)) {
             currentContainer.removeChild(renderer.domElement);
           }
-          
           scene.traverse((object) => {
             if (object.isMesh || object.isLine) {
               if (object.geometry) object.geometry.dispose();
@@ -360,7 +357,6 @@
               }
             }
           });
-          
           renderer.dispose();
         };
       }, []);
@@ -999,9 +995,6 @@
                       
                       {/* DYNAMIC POSITIONED MILESTONE LABELS */}
                       <div className="relative w-full h-4 text-[10px] sm:text-xs font-mono text-slate-400 mt-4 px-1">
-                        <span className={`absolute left-0 top-0 ${flightProgress > 0 ? "text-fuchsia-400 font-bold" : ""}`}>
-                          LIFTOFF
-                        </span>
                         
                         <span 
                           className={`absolute top-0 -translate-x-1/2 whitespace-nowrap ${flightProgress >= (trajData.tMaxQ * 100) ? "text-fuchsia-400 font-bold" : ""}`}
