@@ -350,6 +350,17 @@
           if (currentContainer && currentContainer.contains(renderer.domElement)) {
             currentContainer.removeChild(renderer.domElement);
           }
+          
+          scene.traverse((object) => {
+            if (object.isMesh || object.isLine) {
+              if (object.geometry) object.geometry.dispose();
+              if (object.material) {
+                if (Array.isArray(object.material)) object.material.forEach(m => m.dispose());
+                else object.material.dispose();
+              }
+            }
+          });
+          
           renderer.dispose();
         };
       }, []);
@@ -423,7 +434,7 @@
 
             <polyline points={svgPath} fill="none" stroke="#c026d3" strokeWidth="3" />
 
-            {/* Static Altitude Milestone Nodes */}
+            {/* Static Altitude Milestone Nodes (Enlarged Text) */}
             {milestones.map((m, idx) => {
               const pt = curve.getPoint(m.t);
               const px = mapX(pt.x);
@@ -449,7 +460,7 @@
             <line x1={rocketPx} y1={rocketPy} x2={rocketPx} y2="260" stroke="#38bdf8" strokeDasharray="3 3" opacity="0.5" strokeWidth="1.5" />
             <ellipse cx={rocketPx} cy="260" rx="6" ry="2" fill="#38bdf8" opacity="0.8" />
 
-            {/* Live Floating Altitude Badge over Rocket */}
+            {/* Live Floating Altitude Badge over Rocket (Enlarged Text & Box) */}
             <g transform={`translate(${rocketPx}, ${rocketPy - 30})`}>
               <rect x="-32" y="-12" width="64" height="22" rx="4" fill="#091321" stroke="#38bdf8" strokeWidth="1" opacity="0.95" />
               <text x="0" y="4" fill="#38bdf8" fontSize="12" fontWeight="bold" textAnchor="middle" className="font-mono">{currentAlt} km</text>
@@ -983,15 +994,34 @@
                           setIsFlightPlaying(false);
                           setFlightProgress(parseFloat(e.target.value));
                         }}
-                        className="w-full accent-fuchsia-500 h-2 bg-slate-800 rounded-lg cursor-pointer"
+                        className="w-full accent-fuchsia-500 h-2 bg-slate-800 rounded-lg cursor-pointer relative z-10"
                       />
                       
-                      <div className="flex justify-between text-[10px] sm:text-xs font-mono text-slate-400 mt-4 px-1">
-                        <span className={flightProgress > 0 ? "text-fuchsia-400 font-bold" : ""}>LIFTOFF</span>
-                        <span className={flightProgress >= (trajData.tMaxQ * 100) ? "text-fuchsia-400 font-bold" : ""}>MAX-Q (15km)</span>
-                        <span className={flightProgress >= (trajData.tMeco * 100) ? "text-fuchsia-400 font-bold" : ""}>{isSuborbital ? 'APOGEE (100km)' : 'MECO (150km)'}</span>
-                        <span className={flightProgress === 100 ? "text-fuchsia-400 font-bold" : ""}>{isSuborbital ? 'SPLASHDOWN' : 'ORBIT (500km)'}</span>
+                      {/* DYNAMIC POSITIONED MILESTONE LABELS */}
+                      <div className="relative w-full h-4 text-[10px] sm:text-xs font-mono text-slate-400 mt-4 px-1">
+                        <span className={`absolute left-0 top-0 ${flightProgress > 0 ? "text-fuchsia-400 font-bold" : ""}`}>
+                          LIFTOFF
+                        </span>
+                        
+                        <span 
+                          className={`absolute top-0 -translate-x-1/2 whitespace-nowrap ${flightProgress >= (trajData.tMaxQ * 100) ? "text-fuchsia-400 font-bold" : ""}`}
+                          style={{ left: `${trajData.tMaxQ * 100}%` }}
+                        >
+                          MAX-Q (15km)
+                        </span>
+
+                        <span 
+                          className={`absolute top-0 -translate-x-1/2 whitespace-nowrap ${flightProgress >= (trajData.tMeco * 100) ? "text-fuchsia-400 font-bold" : ""}`}
+                          style={{ left: `${trajData.tMeco * 100}%` }}
+                        >
+                          {isSuborbital ? 'APOGEE (100km)' : 'MECO (150km)'}
+                        </span>
+
+                        <span className={`absolute right-0 top-0 ${flightProgress === 100 ? "text-fuchsia-400 font-bold" : ""}`}>
+                          {isSuborbital ? 'SPLASHDOWN' : 'ORBIT (500km)'}
+                        </span>
                       </div>
+
                     </div>
                   </div>
                 </div>
