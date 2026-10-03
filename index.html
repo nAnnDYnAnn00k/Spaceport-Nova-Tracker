@@ -28,13 +28,17 @@
       color: #edf4ff;
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    /* Hide scrollbar for nav but allow scrolling */
     .no-scrollbar::-webkit-scrollbar {
       display: none;
     }
     .no-scrollbar {
-      -ms-overflow-style: none;  /* IE and Edge */
-      scrollbar-width: none;  /* Firefox */
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    /* Native Dialog Backdrop Styling */
+    dialog::backdrop {
+      background-color: rgba(2, 6, 23, 0.85);
+      backdrop-filter: blur(4px);
     }
   </style>
 </head>
@@ -93,7 +97,7 @@
       useEffect(() => {
         const container = mountRef.current;
         if (!container) return;
-        const currentContainer = container; // Capture reference for clean unmounting
+        const currentContainer = container; 
 
         const w = currentContainer.clientWidth;
         const h = currentContainer.clientHeight || 500;
@@ -308,6 +312,18 @@
           if (currentContainer && currentContainer.contains(renderer.domElement)) {
             currentContainer.removeChild(renderer.domElement);
           }
+          
+          // CRITICAL: Flush WebGL memory when switching away from the 3D Master Plan tab
+          scene.traverse((object) => {
+            if (object.isMesh || object.isLine) {
+              if (object.geometry) object.geometry.dispose();
+              if (object.material) {
+                if (Array.isArray(object.material)) object.material.forEach(m => m.dispose());
+                else object.material.dispose();
+              }
+            }
+          });
+          
           renderer.dispose();
         };
       }, []);
@@ -326,7 +342,7 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- NEW: 3D TELEMETRY ARC VIEWER ---
+    // --- 3D TELEMETRY ARC VIEWER ---
     function TelemetryArcViewer({ rocket, progress }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
@@ -352,7 +368,6 @@
         controls.enableDamping = true;
         controls.maxPolarAngle = Math.PI / 2 - 0.05;
 
-        // Dynamic Arc Math based on Rocket Type
         let points = [];
         let camPos = new THREE.Vector3();
         let targetPos = new THREE.Vector3();
@@ -428,6 +443,18 @@
           if (currentContainer && currentContainer.contains(renderer.domElement)) {
             currentContainer.removeChild(renderer.domElement);
           }
+          
+          // CRITICAL: Flush WebGL memory when switching away from the Telemetry tab
+          scene.traverse((object) => {
+            if (object.isMesh || object.isLine) {
+              if (object.geometry) object.geometry.dispose();
+              if (object.material) {
+                if (Array.isArray(object.material)) object.material.forEach(m => m.dispose());
+                else object.material.dispose();
+              }
+            }
+          });
+          
           renderer.dispose();
         };
       }, [rocket.id]); 
@@ -453,21 +480,13 @@
     }
 
     // --- INLINE SVGs FOR SIDEBAR ---
-    const IconMap = () => (
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
-    );
-    const IconRadar = () => (
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
-    );
-    const IconRocket = () => (
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path></svg>
-    );
-    const IconBuilding = () => (
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>
-    );
-    const IconActivity = () => (
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-    );
+    const IconMap = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>;
+    const IconRadar = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>;
+    const IconRocket = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path></svg>;
+    const IconBuilding = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>;
+    const IconActivity = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>;
+    const IconX = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
+    const IconInfo = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>;
 
     // Sidebar Nav Button Component
     function NavButton({ id, icon, label, activeTab, setActiveTab, colorClass = "text-cyan-400 bg-cyan-400/10 border-cyan-400/25" }) {
@@ -498,6 +517,9 @@
       
       const [flightProgress, setFlightProgress] = useState(0);
       const [isFlightPlaying, setIsFlightPlaying] = useState(false);
+
+      // Phase 2: Native Dialog Ref
+      const aboutModalRef = useRef(null);
 
       const activeRocket = ROCKET_MANIFEST.find(r => r.id === selectedRocketId) || ROCKET_MANIFEST[0];
       const radii = calculateRadii(activeRocket.propellantTons);
@@ -589,9 +611,7 @@
       return (
         <div className="min-h-screen bg-[#080d16] flex flex-col md:flex-row font-sans">
           
-          {/* SIDEBAR COMMAND CENTER */}
           <aside className="w-full md:w-64 bg-[#0b111c] border-b md:border-r border-[#233247] flex flex-col sticky top-0 z-50 md:h-screen">
-            {/* Brand Header */}
             <div className="p-6 md:py-8 md:px-6 border-b border-[#233247] flex flex-col gap-2">
               <div className="w-10 h-10 rounded-xl bg-cyan-400 text-slate-950 flex items-center justify-center mb-1">
                 <IconMap />
@@ -602,7 +622,6 @@
               </div>
             </div>
 
-            {/* Navigation Options */}
             <div className="flex-1 flex flex-col pt-5">
               <div className="px-6 mb-2 hidden md:block">
                 <span className="text-[0.75rem] font-bold text-slate-500 tracking-[0.12em] uppercase">Explore</span>
@@ -616,7 +635,6 @@
               </nav>
             </div>
 
-            {/* Sidebar Footer Coordinates */}
             <div className="p-6 border-t border-[#233247] hidden md:block">
               <span className="text-[0.75rem] font-bold text-slate-500 tracking-[0.12em] uppercase block mb-3">Launch Site</span>
               <p className="text-sm text-slate-300 mb-4">Canso, Nova Scotia</p>
@@ -627,9 +645,7 @@
             </div>
           </aside>
 
-          {/* MAIN CONTENT AREA */}
-          <main className="flex-1 p-4 md:p-10 md:max-w-[calc(100vw-16rem)] overflow-y-auto">
-            {/* Breadcrumb Header */}
+          <main className="flex-1 p-4 md:p-10 md:max-w-[calc(100vw-16rem)] overflow-y-auto relative">
             <header className="flex justify-between items-center mb-8 pb-6 border-b border-[#233247]">
               <div className="flex gap-2.5 items-center text-sm font-medium">
                 <span className="text-slate-500">Spaceport Nova</span>
@@ -642,7 +658,6 @@
               </div>
             </header>
 
-            {/* TAB 1: 3D MASTER PLAN (GLASSMORPHISM APPLIED) */}
             {activeTab === '3d-build' && (
               <div className="space-y-6">
                 <div className="bg-[#111a28] border border-[#233247] rounded-2xl p-6 shadow-xl">
@@ -652,7 +667,6 @@
                   <div className="relative rounded-xl overflow-hidden border border-[#233247] shadow-inner bg-[#091321]">
                     <EnhancedThreeViewer year={buildYear} />
 
-                    {/* Frosted Glass Timeline Scrubber */}
                     <div className="absolute bottom-4 left-4 right-4 p-4 bg-[#091321]/70 backdrop-blur-md rounded-xl border border-slate-600/30 shadow-2xl">
                       <div className="flex justify-between items-center mb-3">
                         <span className="text-xs font-mono text-slate-300">Scrub Infrastructure Timeline</span>
@@ -679,7 +693,6 @@
               </div>
             )}
 
-            {/* TAB 2: TELEMETRY ARC TRACKER (GLASSMORPHISM APPLIED) */}
             {activeTab === 'telemetry' && (
               <div className="space-y-6">
                 <div className="bg-[#111a28] border border-[#233247] rounded-2xl p-6 shadow-xl">
@@ -707,7 +720,6 @@
                   <div className="relative rounded-xl overflow-hidden border border-[#233247] shadow-inner bg-[#091321]">
                     <TelemetryArcViewer rocket={activeRocket} progress={flightProgress} />
 
-                    {/* Frosted Glass Live HUD */}
                     <div className="absolute top-5 left-5 right-5 flex gap-4 pointer-events-none">
                       <div className="bg-[#091321]/70 backdrop-blur-md border border-slate-600/30 rounded-xl p-4 flex flex-col shadow-2xl pointer-events-auto min-w-[140px]">
                         <span className="text-[10px] text-slate-400 font-mono mb-1">EST. ALTITUDE</span>
@@ -719,7 +731,6 @@
                       </div>
                     </div>
 
-                    {/* Frosted Glass Timeline Scrubber */}
                     <div className="absolute bottom-4 left-4 right-4 p-4 bg-[#091321]/70 backdrop-blur-md rounded-xl border border-slate-600/30 shadow-2xl">
                       <div className="flex justify-between items-center mb-4">
                         <button 
@@ -759,7 +770,6 @@
               </div>
             )}
 
-            {/* TAB 3: PROXIMITY CALCULATOR */}
             {activeTab === 'safety' && (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-5 space-y-6">
@@ -818,7 +828,6 @@
               </div>
             )}
 
-            {/* TAB 4: ROCKET MANIFEST */}
             {activeTab === 'manifest' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {ROCKET_MANIFEST.map((r) => (
@@ -852,7 +861,6 @@
               </div>
             )}
 
-            {/* TAB 5: CIVIL MILESTONES */}
             {activeTab === 'development' && (
               <div className="space-y-6">
                 <div className="bg-cyan-400/10 border border-cyan-400/20 p-5 rounded-2xl text-xs text-slate-300 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between shadow-lg">
@@ -877,9 +885,69 @@
               </div>
             )}
 
-            <footer className="mt-12 pt-8 border-t border-[#233247] text-center text-xs font-mono text-slate-500">
-              Spaceport Nova Scotia Safety Operations • Maritime Launch Services
+            <footer className="mt-12 pt-8 border-t border-[#233247] flex flex-col md:flex-row justify-between items-center gap-4 text-xs font-mono text-slate-500">
+              <span>Spaceport Nova Scotia Safety Operations • Maritime Launch Services</span>
+              <button 
+                onClick={() => aboutModalRef.current.showModal()}
+                className="hover:text-cyan-400 transition underline underline-offset-4 flex items-center gap-2"
+              >
+                <IconInfo /> Data & Models Disclaimer
+              </button>
             </footer>
+
+            {/* PHASE 2: NATIVE HTML5 DIALOG MODAL (WITH BACKDROP CLICK FIX) */}
+            <dialog 
+              ref={aboutModalRef} 
+              onClick={(e) => { if (e.target === aboutModalRef.current) aboutModalRef.current.close(); }}
+              className="bg-[#111a28] border border-[#233247] rounded-2xl shadow-2xl p-0 w-11/12 max-w-2xl text-slate-300 m-auto backdrop:bg-[#020617]/80 backdrop:backdrop-blur-sm"
+            >
+              <div className="p-5 border-b border-[#233247] flex justify-between items-center sticky top-0 bg-[#111a28] z-10">
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <IconInfo /> About Data & Models
+                </h2>
+                <button 
+                  onClick={() => aboutModalRef.current.close()}
+                  className="text-slate-500 hover:text-cyan-400 transition p-1 bg-slate-900 rounded-md border border-[#233247]"
+                  title="Close"
+                >
+                  <IconX />
+                </button>
+              </div>
+              <div className="p-6 text-sm text-slate-400 space-y-6 overflow-y-auto max-h-[70vh] no-scrollbar">
+                <p>
+                  This independent reference explorer is designed to visualize the Canso launch complex operations. It is not an official feed operated by Maritime Launch Services.
+                </p>
+                
+                <div>
+                  <h3 className="text-white font-bold mb-2">Proximity Safety Model</h3>
+                  <p className="leading-relaxed">
+                    The four hazard rings (Blast, Overpressure, Acoustic, NOTMAR) are generated using Hopkinson-Cranz cube-root scaling laws. The formula calculates safe scaling distances based on the TNT-equivalent yield of the propellant load in metric tons.
+                  </p>
+                  <p className="mt-2 text-xs text-slate-500 font-mono">
+                    d = Z &times; &#8731;W <br/>
+                    (where Z is the scaled distance factor and W is propellant mass)
+                  </p>
+                  <p className="mt-3 leading-relaxed text-amber-500/80">
+                    Warning: These calculations do not model terrain, specific propellant chemistry, localized weather patterns, or official marine exclusion zones. Always adhere to official NOTMAR/NOTAM broadcast closures during launch campaigns.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-white font-bold mb-2">Flight Simulation</h3>
+                  <p className="leading-relaxed">
+                    The 3D telemetry arcs utilize a Catmull-Rom spline approximation (Three.js CatmullRomCurve3) to interpolate trajectory profiles based on standard suborbital and polar low-earth orbit (LEO) pitch-over parameters. Progress speed, altitude, and velocity readouts are kinematic estimations and do not represent live telemetry data.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-white font-bold mb-2">Location Privacy</h3>
+                  <p className="leading-relaxed">
+                    When you select "Live GPS" to calculate proximity to Launch Complex 1, your latitude and longitude coordinates are processed entirely locally within your browser using JavaScript's Haversine formula. Your location data is never logged, stored, or transmitted to any external server.
+                  </p>
+                </div>
+              </div>
+            </dialog>
+
           </main>
         </div>
       );
