@@ -341,8 +341,8 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- 2D TELEMETRY ARC VIEWER ---
-    function TelemetryArcViewer2D({ rocket, progress }) {
+    // --- 2D TELEMETRY ARC VIEWER WITH ALTITUDE MILESTONES ---
+    function TelemetryArcViewer2D({ rocket, progress, currentAlt }) {
       const isSuborbital = rocket.missionType === 'Suborbital';
       const maxX = isSuborbital ? 100 : 2000;
       const maxY = isSuborbital ? 100 : 500;
@@ -368,8 +368,30 @@
       const curvePoints = curve.getPoints(100);
       const svgPath = curvePoints.map(p => `${mapX(p.x)},${mapY(p.y)}`).join(' ');
 
+      const findT = (targetY, maxScanT = 1) => {
+        let bestT = 0, minDiff = Infinity;
+        for (let t = 0; t <= maxScanT; t += 0.005) {
+          const y = curve.getPoint(t).y;
+          const diff = Math.abs(y - targetY);
+          if (diff < minDiff) { minDiff = diff; bestT = t; }
+        }
+        return bestT;
+      };
+
+      const milestones = isSuborbital ? [
+        { label: "MAX-Q", alt: "15 km", t: findT(15, 0.5), align: "start", dx: 8, dy: 14 },
+        { label: "APOGEE / KARMAN", alt: "100 km", t: 0.5, align: "middle", dx: 0, dy: -12 }
+      ] : [
+        { label: "MAX-Q", alt: "15 km", t: findT(15, 0.3), align: "start", dx: 8, dy: 14 },
+        { label: "KARMAN LINE", alt: "100 km", t: findT(100, 0.5), align: "start", dx: 8, dy: -8 },
+        { label: "MECO / SEP", alt: "150 km", t: findT(150, 0.7), align: "start", dx: 8, dy: 14 },
+        { label: "ORBIT INSERTION", alt: "500 km", t: 1.0, align: "end", dx: -8, dy: -12 }
+      ];
+
       const t = Math.max(0, Math.min(1, progress / 100));
       const currentPoint = curve.getPoint(t);
+      const rocketPx = mapX(currentPoint.x);
+      const rocketPy = mapY(currentPoint.y);
       
       let rotation = 0;
       if (t < 1) {
@@ -396,8 +418,41 @@
             <text x="900" y="280" fill="#475569" fontSize="11" textAnchor="end" className="font-mono">Downrange ({maxX}km)</text>
 
             <polyline points={svgPath} fill="none" stroke="#c026d3" strokeWidth="3" />
+
+            {/* Static Altitude Milestone Nodes */}
+            {milestones.map((m, idx) => {
+              const pt = curve.getPoint(m.t);
+              const px = mapX(pt.x);
+              const py = mapY(pt.y);
+              return (
+                <g key={idx}>
+                  <circle cx={px} cy={py} r="4" fill="#38bdf8" stroke="#091321" strokeWidth="2" />
+                  <text 
+                    x={px + m.dx} 
+                    y={py + m.dy} 
+                    fill="#94a3b8" 
+                    fontSize="9" 
+                    textAnchor={m.align} 
+                    className="font-mono font-bold"
+                  >
+                    {m.label} ({m.alt})
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* Live Vertical Drop Plumb Line & Footprint Reticle */}
+            <line x1={rocketPx} y1={rocketPy} x2={rocketPx} y2="260" stroke="#38bdf8" strokeDasharray="3 3" opacity="0.5" strokeWidth="1.5" />
+            <ellipse cx={rocketPx} cy="260" rx="6" ry="2" fill="#38bdf8" opacity="0.8" />
+
+            {/* Live Floating Altitude Badge over Rocket */}
+            <g transform={`translate(${rocketPx}, ${rocketPy - 24})`}>
+              <rect x="-26" y="-8" width="52" height="16" rx="4" fill="#091321" stroke="#38bdf8" strokeWidth="1" opacity="0.95" />
+              <text x="0" y="4" fill="#38bdf8" fontSize="9" fontWeight="bold" textAnchor="middle" className="font-mono">{currentAlt} km</text>
+            </g>
             
-            <g transform={`translate(${mapX(currentPoint.x)}, ${mapY(currentPoint.y)}) rotate(${rotation})`}>
+            {/* Rocket Telemetry Marker */}
+            <g transform={`translate(${rocketPx}, ${rocketPy}) rotate(${rotation})`}>
               <polygon points="-8,-5 12,0 -8,5 -4,0" fill="#22d3ee" />
               <circle cx="-8" cy="0" r="5" fill="#c026d3" opacity="0.4" />
             </g>
@@ -406,7 +461,7 @@
       );
     }
 
-    // --- UPGRADED 3D TELEMETRY ARC VIEWER WITH GATES & PLUMB LINE ---
+    // --- UPGRADED 3D TELEMETRY ARC VIEWER WITH PROCEDURAL SPRITES ---
     function TelemetryArcViewer3D({ rocket, progress }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
@@ -495,10 +550,46 @@
         groundReticle.rotation.x = -Math.PI / 2;
         scene.add(groundReticle);
 
-        // Spatial Milestone Gateways (Max-Q and Karman Line)
-        const findTForY = (targetY) => {
+        // Procedural Billboard Text Sprite Generator
+        const makeTextSprite = (text, color = '#38bdf8') => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 256; canvas.height = 64;
+          const ctx = canvas.getContext('2d');
+          
+          ctx.fillStyle = 'rgba(9, 19, 33, 0.85)';
+          ctx.strokeStyle = '#233247';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          const x = 6, y = 6, w = 244, h = 52, r = 10;
+          ctx.moveTo(x + r, y);
+          ctx.lineTo(x + w - r, y);
+          ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+          ctx.lineTo(x + w, y + h - r);
+          ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+          ctx.lineTo(x + r, y + h);
+          ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+          ctx.lineTo(x, y + r);
+          ctx.quadraticCurveTo(x, y, x + r, y);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = color;
+          ctx.font = 'bold 22px monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(text, 128, 32);
+
+          const texture = new THREE.CanvasTexture(canvas);
+          const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+          const sprite = new THREE.Sprite(material);
+          sprite.scale.set(markerScale * 3.5, markerScale * 0.9, 1);
+          return sprite;
+        };
+
+        const findTForY = (targetY, maxScanT = 1) => {
           let bestT = 0, minDiff = Infinity;
-          for (let t = 0; t <= 1; t += 0.005) {
+          for (let t = 0; t <= maxScanT; t += 0.005) {
             const y = curve.getPoint(t).y;
             const diff = Math.abs(y - targetY);
             if (diff < minDiff) { minDiff = diff; bestT = t; }
@@ -508,21 +599,44 @@
 
         const gateGeo = new THREE.TorusGeometry(markerScale * 1.5, markerScale * 0.08, 12, 32);
         
-        const tMaxQ = findTForY(15);
+        // Gate 1: Max-Q (~15km)
+        const tMaxQ = findTForY(15, 0.4);
         const posMaxQ = curve.getPoint(tMaxQ);
         const tanMaxQ = curve.getTangent(tMaxQ).normalize();
         const gateMaxQ = new THREE.Mesh(gateGeo, new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.35 }));
         gateMaxQ.position.copy(posMaxQ);
         gateMaxQ.lookAt(posMaxQ.clone().add(tanMaxQ));
         scene.add(gateMaxQ);
+        const spriteMaxQ = makeTextSprite('MAX-Q: 15 km', '#22d3ee');
+        spriteMaxQ.position.copy(posMaxQ.clone().add(new THREE.Vector3(0, markerScale * 1.6, 0)));
+        scene.add(spriteMaxQ);
 
-        const tKarman = findTForY(100);
+        // Gate 2: Karman Line or Apogee (~100km)
+        const tKarman = rocket.missionType === 'Suborbital' ? 0.5 : findTForY(100, 0.6);
         const posKarman = curve.getPoint(tKarman);
         const tanKarman = curve.getTangent(tKarman).normalize();
         const gateKarman = new THREE.Mesh(gateGeo, new THREE.MeshBasicMaterial({ color: 0xc026d3, transparent: true, opacity: 0.35 }));
         gateKarman.position.copy(posKarman);
         gateKarman.lookAt(posKarman.clone().add(tanKarman));
         scene.add(gateKarman);
+        const labelKarman = rocket.missionType === 'Suborbital' ? 'APOGEE: 100 km' : 'KARMAN: 100 km';
+        const spriteKarman = makeTextSprite(labelKarman, '#c026d3');
+        spriteKarman.position.copy(posKarman.clone().add(new THREE.Vector3(0, markerScale * 1.6, 0)));
+        scene.add(spriteKarman);
+
+        // Orbital additional gates: MECO (~150km)
+        if (rocket.missionType !== 'Suborbital') {
+          const tMeco = findTForY(150, 0.7);
+          const posMeco = curve.getPoint(tMeco);
+          const tanMeco = curve.getTangent(tMeco).normalize();
+          const gateMeco = new THREE.Mesh(gateGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.35 }));
+          gateMeco.position.copy(posMeco);
+          gateMeco.lookAt(posMeco.clone().add(tanMeco));
+          scene.add(gateMeco);
+          const spriteMeco = makeTextSprite('MECO: 150 km', '#38bdf8');
+          spriteMeco.position.copy(posMeco.clone().add(new THREE.Vector3(0, markerScale * 1.6, 0)));
+          scene.add(spriteMeco);
+        }
 
         sceneRef.current = { curve, markerGroup, plumbLine, groundReticle };
 
@@ -550,10 +664,11 @@
           }
           
           scene.traverse((object) => {
-            if (object.isMesh || object.isLine) {
+            if (object.isMesh || object.isLine || object.isSprite) {
               if (object.geometry) object.geometry.dispose();
               if (object.material) {
-                if (Array.isArray(object.material)) object.material.forEach(m => m.dispose());
+                if (object.material.map) object.material.map.dispose();
+                if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
                 else object.material.dispose();
               }
             }
@@ -569,7 +684,7 @@
           const t = Math.max(0, Math.min(1, progress / 100));
           const position = curve.getPoint(t);
           
-          // OPTIMIZED: Mutate the buffer directly instead of recreating arrays
+          // Zero-allocation buffer update for vertical plumb line
           const positions = plumbLine.geometry.attributes.position.array;
           positions[0] = position.x; positions[1] = position.y; positions[2] = position.z;
           positions[3] = position.x; positions[4] = 0.1;        positions[5] = position.z;
@@ -850,7 +965,7 @@
                   <div className="relative rounded-xl overflow-hidden border border-[#233247] shadow-inner bg-[#091321]">
                     
                     {flightView === '2d' 
-                      ? <TelemetryArcViewer2D rocket={activeRocket} progress={flightProgress} />
+                      ? <TelemetryArcViewer2D rocket={activeRocket} progress={flightProgress} currentAlt={currentAlt} />
                       : <TelemetryArcViewer3D rocket={activeRocket} progress={flightProgress} />
                     }
 
@@ -893,10 +1008,10 @@
                       />
                       
                       <div className="flex justify-between text-[10px] sm:text-xs font-mono text-slate-400 mt-4 px-1">
-                        <span className={flightProgress > 0 ? "text-fuchsia-400" : ""}>LIFTOFF</span>
-                        <span className={flightProgress > 25 ? "text-fuchsia-400" : ""}>MAX-Q</span>
-                        <span className={flightProgress > 60 ? "text-fuchsia-400" : ""}>{isSuborbital ? 'APOGEE' : 'MECO / SEP'}</span>
-                        <span className={flightProgress === 100 ? "text-fuchsia-400" : ""}>{isSuborbital ? 'SPLASHDOWN' : 'ORBIT INSERTION'}</span>
+                        <span className={flightProgress > 0 ? "text-fuchsia-400 font-bold" : ""}>LIFTOFF (0 km)</span>
+                        <span className={flightProgress >= 25 ? "text-fuchsia-400 font-bold" : ""}>MAX-Q (15 km)</span>
+                        <span className={flightProgress >= 60 ? "text-fuchsia-400 font-bold" : ""}>{isSuborbital ? 'APOGEE (100 km)' : 'MECO / SEP (150 km)'}</span>
+                        <span className={flightProgress === 100 ? "text-fuchsia-400 font-bold" : ""}>{isSuborbital ? 'SPLASHDOWN (0 km)' : 'ORBIT (500 km)'}</span>
                       </div>
                     </div>
                   </div>
