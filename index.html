@@ -93,7 +93,7 @@
       useEffect(() => {
         const container = mountRef.current;
         if (!container) return;
-        const currentContainer = container; 
+        const currentContainer = container; // Capture reference for clean unmounting
 
         const w = currentContainer.clientWidth;
         const h = currentContainer.clientHeight || 500;
@@ -683,13 +683,26 @@
             {activeTab === 'telemetry' && (
               <div className="space-y-6">
                 <div className="bg-[#111a28] border border-[#233247] rounded-2xl p-6 shadow-xl">
-                  <div className="flex justify-between items-center mb-2">
-                    <h2 className="text-xs font-mono uppercase text-fuchsia-400 font-bold tracking-wider">Ascent Vector: {activeRocket.name}</h2>
+                  <div className="flex justify-between items-center mb-3">
+                    <h2 className="text-xs font-mono uppercase text-fuchsia-400 font-bold tracking-wider">Ascent Vector Tracker</h2>
                     <span className="text-[10px] font-mono text-slate-300 bg-slate-800 border border-slate-700 px-2 py-1 rounded">
                       {activeRocket.missionType.toUpperCase()} TRAJECTORY
                     </span>
                   </div>
-                  <p className="text-sm text-slate-400 mb-5">Interactive downrange trajectory plot. Click and drag to orbit camera.</p>
+                  
+                  <select 
+                    value={selectedRocketId} 
+                    onChange={(e) => {
+                      setSelectedRocketId(e.target.value);
+                      setFlightProgress(0);
+                      setIsFlightPlaying(false);
+                    }} 
+                    className="w-full bg-slate-900 border border-[#233247] rounded-xl p-3 text-sm text-white font-medium focus:ring-2 focus:ring-fuchsia-500 focus:outline-none mb-5"
+                  >
+                    {ROCKET_MANIFEST.map(r => (
+                      <option key={r.id} value={r.id}>{r.name} • {r.operator}</option>
+                    ))}
+                  </select>
                   
                   <div className="relative rounded-xl overflow-hidden border border-[#233247] shadow-inner bg-[#091321]">
                     <TelemetryArcViewer rocket={activeRocket} progress={flightProgress} />
