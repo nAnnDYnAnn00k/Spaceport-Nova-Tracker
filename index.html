@@ -367,14 +367,15 @@
         return bestT;
       };
 
+      // OPTIMIZED ORBITAL OFFSETS: Stacking labels vertically so they never collide
       const milestones = isSuborbital ? [
-        { label: "MAX-Q", alt: "15 km", t: findT(15, 0.5), align: "start", dx: 8, dy: 14 },
-        { label: "APOGEE / KARMAN", alt: "100 km", t: 0.5, align: "middle", dx: 0, dy: -14 }
+        { label: "MAX-Q", alt: "15 km", t: findT(15, 0.5), align: "start", dx: 12, dy: 14 },
+        { label: "APOGEE / KARMAN", alt: "100 km", t: 0.5, align: "middle", dx: 0, dy: -16 }
       ] : [
-        { label: "MAX-Q", alt: "15 km", t: findT(15, 0.3), align: "start", dx: 8, dy: 14 },
-        { label: "KARMAN LINE", alt: "100 km", t: findT(100, 0.5), align: "start", dx: 8, dy: -8 },
-        { label: "MECO / SEP", alt: "150 km", t: findT(150, 0.7), align: "start", dx: 8, dy: 14 },
-        { label: "ORBIT INSERTION", alt: "500 km", t: 1.0, align: "end", dx: -8, dy: -14 }
+        { label: "MAX-Q", alt: "15 km", t: findT(15, 0.3), align: "start", dx: 14, dy: 12 },
+        { label: "KARMAN LINE", alt: "100 km", t: findT(100, 0.5), align: "start", dx: 14, dy: 4 },
+        { label: "MECO / SEP", alt: "150 km", t: findT(150, 0.7), align: "start", dx: 14, dy: -12 },
+        { label: "ORBIT INSERTION", alt: "500 km", t: 1.0, align: "end", dx: -12, dy: -16 }
       ];
 
       const t = Math.max(0, Math.min(1, progress / 100));
@@ -674,7 +675,7 @@
           const t = Math.max(0, Math.min(1, progress / 100));
           const position = curve.getPoint(t);
           
-          // Zero-allocation buffer update for vertical plumb line
+          // OPTIMIZED: Mutate the buffer directly instead of recreating arrays
           const positions = plumbLine.geometry.attributes.position.array;
           positions[0] = position.x; positions[1] = position.y; positions[2] = position.z;
           positions[3] = position.x; positions[4] = 0.1;        positions[5] = position.z;
