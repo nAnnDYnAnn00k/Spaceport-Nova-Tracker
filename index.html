@@ -313,7 +313,6 @@
             currentContainer.removeChild(renderer.domElement);
           }
           
-          // CRITICAL: Flush WebGL memory when switching away from the 3D Master Plan tab
           scene.traverse((object) => {
             if (object.isMesh || object.isLine) {
               if (object.geometry) object.geometry.dispose();
@@ -342,8 +341,83 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
+    // --- NEW: 2D TELEMETRY ARC VIEWER ---
+    function TelemetryArcViewer2D({ rocket, progress }) {
+      const isSuborbital = rocket.missionType === 'Suborbital';
+      const maxX = isSuborbital ? 100 : 2000;
+      const maxY = isSuborbital ? 100 : 500;
+
+      // Map mathematical coordinates to SVG viewport (inverted Y axis for rendering)
+      const mapX = (x) => 50 + (x / maxX) * 850;
+      const mapY = (y) => 260 - (y / maxY) * 220; 
+
+      // Use Three.js spline math to generate the exact same curve points
+      const points3D = isSuborbital ? [
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(15, 50, 0),
+        new THREE.Vector3(50, 100, 0),
+        new THREE.Vector3(85, 50, 0),
+        new THREE.Vector3(100, 0, 0)
+      ] : [
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(20, 150, 0),
+        new THREE.Vector3(200, 400, 0),
+        new THREE.Vector3(1000, 500, 0),
+        new THREE.Vector3(2000, 500, 0)
+      ];
+
+      const curve = new THREE.CatmullRomCurve3(points3D);
+      const curvePoints = curve.getPoints(100);
+      const svgPath = curvePoints.map(p => `${mapX(p.x)},${mapY(p.y)}`).join(' ');
+
+      const t = Math.max(0, Math.min(1, progress / 100));
+      const currentPoint = curve.getPoint(t);
+      
+      let rotation = 0;
+      if (t < 1) {
+        const tangent = curve.getTangent(t).normalize();
+        // Calculate 2D rotation for the SVG marker (SVG Y axis is flipped)
+        rotation = Math.atan2(-tangent.y, tangent.x) * (180 / Math.PI); 
+      }
+
+      return (
+        <div className="w-full h-[550px] bg-[#091321] relative flex items-center justify-center pointer-events-none">
+          <svg viewBox="0 0 950 300" className="w-full h-full">
+            {/* Grid Box */}
+            <line x1="50" y1="260" x2="900" y2="260" stroke="#1e293b" strokeWidth="2" />
+            <line x1="50" y1="40" x2="50" y2="260" stroke="#1e293b" strokeWidth="2" />
+            
+            {/* Background Grid Lines */}
+            <line x1="50" y1="150" x2="900" y2="150" stroke="#0f172a" strokeWidth="1" />
+            
+            {/* Karman Line (100km) */}
+            {maxY >= 100 && (
+              <g>
+                <line x1="50" y1={mapY(100)} x2="900" y2={mapY(100)} stroke="#334155" strokeDasharray="4 4" strokeWidth="1" />
+                <text x="900" y={mapY(100) - 5} fill="#64748b" fontSize="10" textAnchor="end" className="font-mono">KARMAN LINE (100km)</text>
+              </g>
+            )}
+            
+            {/* Axis Labels */}
+            <text x="40" y="265" fill="#475569" fontSize="11" textAnchor="end" className="font-mono">0km</text>
+            <text x="40" y="45" fill="#475569" fontSize="11" textAnchor="end" className="font-mono">{maxY}km</text>
+            <text x="900" y="280" fill="#475569" fontSize="11" textAnchor="end" className="font-mono">Downrange ({maxX}km)</text>
+
+            {/* Flight Path Arc */}
+            <polyline points={svgPath} fill="none" stroke="#c026d3" strokeWidth="3" />
+            
+            {/* Rocket Telemetry Marker */}
+            <g transform={`translate(${mapX(currentPoint.x)}, ${mapY(currentPoint.y)}) rotate(${rotation})`}>
+              <polygon points="-8,-5 12,0 -8,5 -4,0" fill="#22d3ee" />
+              <circle cx="-8" cy="0" r="5" fill="#c026d3" opacity="0.4" />
+            </g>
+          </svg>
+        </div>
+      );
+    }
+
     // --- 3D TELEMETRY ARC VIEWER ---
-    function TelemetryArcViewer({ rocket, progress }) {
+    function TelemetryArcViewer3D({ rocket, progress }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
 
@@ -444,7 +518,6 @@
             currentContainer.removeChild(renderer.domElement);
           }
           
-          // CRITICAL: Flush WebGL memory when switching away from the Telemetry tab
           scene.traverse((object) => {
             if (object.isMesh || object.isLine) {
               if (object.geometry) object.geometry.dispose();
@@ -517,8 +590,8 @@
       
       const [flightProgress, setFlightProgress] = useState(0);
       const [isFlightPlaying, setIsFlightPlaying] = useState(false);
+      const [flightView, setFlightView] = useState('2d'); // Toggle for 2D vs 3D
 
-      // Phase 2: Native Dialog Ref
       const aboutModalRef = useRef(null);
 
       const activeRocket = ROCKET_MANIFEST.find(r => r.id === selectedRocketId) || ROCKET_MANIFEST[0];
@@ -696,11 +769,30 @@
             {activeTab === 'telemetry' && (
               <div className="space-y-6">
                 <div className="bg-[#111a28] border border-[#233247] rounded-2xl p-6 shadow-xl">
-                  <div className="flex justify-between items-center mb-3">
-                    <h2 className="text-xs font-mono uppercase text-fuchsia-400 font-bold tracking-wider">Ascent Vector Tracker</h2>
-                    <span className="text-[10px] font-mono text-slate-300 bg-slate-800 border border-slate-700 px-2 py-1 rounded">
-                      {activeRocket.missionType.toUpperCase()} TRAJECTORY
-                    </span>
+                  
+                  {/* Title and View Toggle Row */}
+                  <div className="flex justify-between items-start md:items-center mb-4 flex-col md:flex-row gap-3">
+                    <div className="flex flex-col">
+                      <h2 className="text-xs font-mono uppercase text-fuchsia-400 font-bold tracking-wider">Ascent Vector Tracker</h2>
+                      <span className="text-[10px] font-mono text-slate-300 bg-slate-800 border border-slate-700 px-2 py-1 rounded w-max mt-1.5">
+                        {activeRocket.missionType.toUpperCase()} TRAJECTORY
+                      </span>
+                    </div>
+                    
+                    <div className="flex bg-[#091321] border border-[#233247] rounded-lg p-1 w-full md:w-auto">
+                      <button 
+                        onClick={() => setFlightView('2d')}
+                        className={`flex-1 md:flex-none px-4 py-2 text-[10px] font-bold font-mono rounded-md transition ${flightView === '2d' ? 'bg-fuchsia-500/20 text-fuchsia-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}
+                      >
+                        2D GRAPH
+                      </button>
+                      <button 
+                        onClick={() => setFlightView('3d')}
+                        className={`flex-1 md:flex-none px-4 py-2 text-[10px] font-bold font-mono rounded-md transition ${flightView === '3d' ? 'bg-fuchsia-500/20 text-fuchsia-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}
+                      >
+                        3D ORBIT
+                      </button>
+                    </div>
                   </div>
                   
                   <select 
@@ -718,7 +810,11 @@
                   </select>
                   
                   <div className="relative rounded-xl overflow-hidden border border-[#233247] shadow-inner bg-[#091321]">
-                    <TelemetryArcViewer rocket={activeRocket} progress={flightProgress} />
+                    
+                    {flightView === '2d' 
+                      ? <TelemetryArcViewer2D rocket={activeRocket} progress={flightProgress} />
+                      : <TelemetryArcViewer3D rocket={activeRocket} progress={flightProgress} />
+                    }
 
                     <div className="absolute top-5 left-5 right-5 flex gap-4 pointer-events-none">
                       <div className="bg-[#091321]/70 backdrop-blur-md border border-slate-600/30 rounded-xl p-4 flex flex-col shadow-2xl pointer-events-auto min-w-[140px]">
@@ -895,7 +991,6 @@
               </button>
             </footer>
 
-            {/* PHASE 2: NATIVE HTML5 DIALOG MODAL (WITH BACKDROP CLICK FIX) */}
             <dialog 
               ref={aboutModalRef} 
               onClick={(e) => { if (e.target === aboutModalRef.current) aboutModalRef.current.close(); }}
