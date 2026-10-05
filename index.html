@@ -124,6 +124,7 @@
       };
     };
 
+    // --- HIGH-RES 3D MASTER PLAN VIEWER ---
     function EnhancedThreeViewer({ year }) {
       const mountRef = useRef(null);
       const phasesRef = useRef({});
@@ -686,7 +687,7 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- GLOBAL ORBIT 3D VIEWER (TRUE UNBOUND ROTATION) ---
+    // --- GLOBAL ORBIT 3D VIEWER (TRUE UNBOUND ROTATION DEBUGGED) ---
     function TelemetryOrbitViewer3D({ rocket, progress }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
@@ -710,7 +711,7 @@
         renderer.setSize(w, h);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         
-        // Critical: Prevent mobile scrolling when dragging the canvas
+        // Critical: Prevent native scrolling when dragging the canvas
         renderer.domElement.style.touchAction = 'none';
         currentContainer.appendChild(renderer.domElement);
 
@@ -798,24 +799,37 @@
         camera.position.set(70, 25, 65); 
         controls.target.set(0, 0, 0);
 
-        // Custom Pointer Rotation Logic (Bypasses Gimbal Lock)
+        // Custom Pointer Rotation Logic (Single-touch lock and speed limit)
         let isDragging = false;
         let prevX = 0, prevY = 0;
+        let activePointerId = null;
 
         const onPointerDown = (e) => {
+          if (isDragging) return; // Prevent multi-touch chaotic jumping
           isDragging = true;
+          activePointerId = e.pointerId;
           prevX = e.clientX;
           prevY = e.clientY;
         };
 
-        const onPointerUp = () => { isDragging = false; };
+        const onPointerUp = (e) => { 
+          if (e.pointerId === activePointerId) {
+            isDragging = false; 
+            activePointerId = null;
+          }
+        };
 
         const onPointerMove = (e) => {
-          if (!isDragging) return;
-          const deltaX = e.clientX - prevX;
-          const deltaY = e.clientY - prevY;
+          if (!isDragging || e.pointerId !== activePointerId) return;
           
-          // Calculate camera's localized up/right vectors to tumble natively
+          let deltaX = e.clientX - prevX;
+          let deltaY = e.clientY - prevY;
+          
+          // Cap the rotation speed to prevent mobile swipe disorientation
+          const maxDelta = 35; 
+          deltaX = Math.max(-maxDelta, Math.min(maxDelta, deltaX));
+          deltaY = Math.max(-maxDelta, Math.min(maxDelta, deltaY));
+          
           const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
           const camUp = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
           
@@ -831,6 +845,7 @@
 
         renderer.domElement.addEventListener('pointerdown', onPointerDown);
         window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointercancel', onPointerUp);
         window.addEventListener('pointermove', onPointerMove);
 
         sceneRef.current = { rocketPivot, rocketMesh, insertionAngle, autoOrbitAngle: insertionAngle };
@@ -840,7 +855,6 @@
           frameId = requestAnimationFrame(animate);
           controls.update();
           
-          // Apply native auto-spin around the Earth's local North-South axis
           const autoSpin = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.0005);
           earthGroup.quaternion.multiply(autoSpin);
           
@@ -881,6 +895,7 @@
           window.removeEventListener('resize', handleResize);
           renderer.domElement.removeEventListener('pointerdown', onPointerDown);
           window.removeEventListener('pointerup', onPointerUp);
+          window.removeEventListener('pointercancel', onPointerUp);
           window.removeEventListener('pointermove', onPointerMove);
 
           if (currentContainer && currentContainer.contains(renderer.domElement)) {
