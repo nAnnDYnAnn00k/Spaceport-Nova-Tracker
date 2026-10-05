@@ -350,12 +350,11 @@
           }
           
           scene.traverse((object) => {
-            if (object.isMesh || object.isLine) {
-              if (object.geometry) object.geometry.dispose();
-              if (object.material) {
-                if (Array.isArray(object.material)) object.material.forEach(m => m.dispose());
-                else object.material.dispose();
-              }
+            if (object.geometry) object.geometry.dispose();
+            if (object.material) {
+              if (object.material.map) object.material.map.dispose();
+              if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+              else object.material.dispose();
             }
           });
           
@@ -377,7 +376,7 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- 2D TELEMETRY ARC VIEWER WITH AUTO-CENTERING ---
+    // --- 2D TELEMETRY ARC VIEWER (WITH MOBILE SCROLL) ---
     function TelemetryArcViewer2D({ rocket, progress, currentAlt, trajData }) {
       const isSuborbital = rocket.missionType === 'Suborbital';
       const maxX = isSuborbital ? 100 : 2000;
@@ -480,7 +479,7 @@
       );
     }
 
-    // --- UPGRADED 3D TELEMETRY ARC VIEWER WITH PROCEDURAL SPRITES ---
+    // --- 3D LAUNCH VIEWER ---
     function TelemetryArcViewer3D({ rocket, progress, trajData }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
@@ -554,7 +553,6 @@
         groundReticle.rotation.x = -Math.PI / 2;
         scene.add(groundReticle);
 
-        // Procedural Billboard Text Sprite Generator 
         const makeTextSprite = (text, color = '#38bdf8') => {
           const canvas = document.createElement('canvas');
           canvas.width = 512; canvas.height = 128;
@@ -655,13 +653,11 @@
           }
           
           scene.traverse((object) => {
-            if (object.isMesh || object.isLine || object.isSprite) {
-              if (object.geometry) object.geometry.dispose();
-              if (object.material) {
-                if (object.material.map) object.material.map.dispose();
-                if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
-                else object.material.dispose();
-              }
+            if (object.geometry) object.geometry.dispose();
+            if (object.material) {
+              if (object.material.map) object.material.map.dispose();
+              if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+              else object.material.dispose();
             }
           });
           
@@ -675,7 +671,6 @@
           const t = Math.max(0, Math.min(1, progress / 100));
           const position = curve.getPoint(t);
           
-          // OPTIMIZED: Mutate the buffer directly instead of recreating arrays
           const positions = plumbLine.geometry.attributes.position.array;
           positions[0] = position.x; positions[1] = position.y; positions[2] = position.z;
           positions[3] = position.x; positions[4] = 0.1;        positions[5] = position.z;
@@ -692,6 +687,163 @@
           } else {
             markerGroup.position.copy(position);
           }
+        }
+      }, [progress]);
+
+      return <div ref={mountRef} className="w-full h-[550px]" />;
+    }
+
+    // --- NEW: GLOBAL ORBIT 3D VIEWER ---
+    function TelemetryOrbitViewer3D({ rocket, progress }) {
+      const mountRef = useRef(null);
+      const sceneRef = useRef({});
+
+      useEffect(() => {
+        const container = mountRef.current;
+        if (!container) return;
+        const currentContainer = container;
+
+        const w = currentContainer.clientWidth;
+        const h = currentContainer.clientHeight || 500;
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x091321);
+
+        const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 10000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(w, h);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        currentContainer.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.enablePan = false;
+        controls.minDistance = 120;
+        controls.maxDistance = 400;
+
+        const earthGroup = new THREE.Group();
+        scene.add(earthGroup);
+
+        // Solid Earth Core (hides backside lines)
+        const earthRadius = 100;
+        const coreGeo = new THREE.SphereGeometry(earthRadius, 32, 32);
+        const coreMat = new THREE.MeshBasicMaterial({ color: 0x07101c });
+        earthGroup.add(new THREE.Mesh(coreGeo, coreMat));
+
+        // Earth Wireframe Grid
+        const wireMat = new THREE.LineBasicMaterial({ color: 0x1e293b, transparent: true, opacity: 0.8 });
+        const wireGeo = new THREE.EdgesGeometry(new THREE.SphereGeometry(earthRadius, 16, 16));
+        earthGroup.add(new THREE.LineSegments(wireGeo, wireMat));
+
+        // Equator Reference
+        const eqGeo = new THREE.RingGeometry(earthRadius + 1, earthRadius + 1.5, 64);
+        const eqMat = new THREE.MeshBasicMaterial({ color: 0x334155, side: THREE.DoubleSide });
+        const equator = new THREE.Mesh(eqGeo, eqMat);
+        equator.rotation.x = Math.PI / 2;
+        earthGroup.add(equator);
+
+        // Canso Launch Pad Marker
+        const latRad = 45.3056 * (Math.PI / 180);
+        const lonRad = -60.9814 * (Math.PI / 180);
+        const cx = earthRadius * Math.cos(latRad) * Math.sin(lonRad);
+        const cy = earthRadius * Math.sin(latRad);
+        const cz = earthRadius * Math.cos(latRad) * Math.cos(lonRad);
+        const padPos = new THREE.Vector3(cx, cy, cz);
+        
+        const padMesh = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 8), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+        padMesh.position.copy(padPos);
+        earthGroup.add(padMesh);
+
+        // Parse Inclination from Manifest (Fallback to 90/Polar)
+        let inc = 90;
+        if (rocket.orbit.includes('98')) inc = 98.1;
+        if (rocket.orbit.includes('87')) inc = 87.9;
+        
+        const isSub = rocket.missionType === 'Suborbital';
+        const orbitRadius = earthRadius + (isSub ? 3 : 12);
+        
+        // Orbital pivot group anchored at the Earth's core
+        const orbitGroup = new THREE.Group();
+        // Step 1: Aim the Z-axis of this invisible group directly at the Canso launch pad
+        orbitGroup.lookAt(padPos); 
+        // Step 2: Spin the group around that Canso anchor point to match the launch azimuth (inclination)
+        const azimuthTilt = (inc - 90) * (Math.PI / 180);
+        orbitGroup.rotateZ(azimuthTilt);
+        earthGroup.add(orbitGroup);
+
+        // Draw Global Orbit Line exactly along the path
+        const pathPoints = [];
+        const pathExtent = isSub ? 0.15 : Math.PI * 2;
+        for (let i = 0; i <= 128; i++) {
+          const a = (i / 128) * pathExtent;
+          // Curve starts at Z (Canso) and tilts into -Y
+          pathPoints.push(new THREE.Vector3(0, -orbitRadius * Math.sin(a), orbitRadius * Math.cos(a)));
+        }
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(pathPoints);
+        const lineMat = new THREE.LineBasicMaterial({ color: 0xc026d3, transparent: true, opacity: 0.4 });
+        orbitGroup.add(new THREE.Line(lineGeo, lineMat));
+
+        // Create a dedicated pivot specifically for animating the rocket along the arc
+        const rocketPivot = new THREE.Group();
+        orbitGroup.add(rocketPivot);
+
+        const rocketGeo = new THREE.ConeGeometry(1.5, 4, 8);
+        const rocketMesh = new THREE.Mesh(rocketGeo, new THREE.MeshBasicMaterial({ color: 0x22d3ee }));
+        rocketMesh.position.set(0, 0, orbitRadius);
+        // Spin the cone 180 degrees so the tip points natively along the velocity vector (-Y direction)
+        rocketMesh.rotation.x = Math.PI; 
+        rocketPivot.add(rocketMesh);
+
+        // Initial Camera Setup looking at Nova Scotia
+        camera.position.set(cx * 2.5, cy * 2.5, cz * 2.5);
+        controls.target.set(0, 0, 0);
+
+        sceneRef.current = { rocketPivot, isSub, pathExtent };
+
+        let frameId;
+        const animate = () => {
+          frameId = requestAnimationFrame(animate);
+          controls.update();
+          earthGroup.rotation.y += 0.0005; // Gentle cinematic global spin
+          renderer.render(scene, camera);
+        };
+        animate();
+
+        const handleResize = () => {
+          if (!currentContainer) return;
+          camera.aspect = currentContainer.clientWidth / currentContainer.clientHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(currentContainer.clientWidth, currentContainer.clientHeight);
+        };
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+          cancelAnimationFrame(frameId);
+          window.removeEventListener('resize', handleResize);
+          if (currentContainer && currentContainer.contains(renderer.domElement)) {
+            currentContainer.removeChild(renderer.domElement);
+          }
+          
+          scene.traverse((object) => {
+            if (object.geometry) object.geometry.dispose();
+            if (object.material) {
+              if (object.material.map) object.material.map.dispose();
+              if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+              else object.material.dispose();
+            }
+          });
+          
+          renderer.dispose();
+        };
+      }, [rocket.id]); 
+
+      useEffect(() => {
+        const { rocketPivot, isSub, pathExtent } = sceneRef.current;
+        if (rocketPivot) {
+          const t = Math.max(0, Math.min(1, progress / 100));
+          // Rotate the rocket's pivot around the X-axis. 
+          // This perfectly traces the curve without needing any complex coordinate mapping.
+          rocketPivot.rotation.x = t * pathExtent;
         }
       }, [progress]);
 
@@ -926,18 +1078,24 @@
                       </span>
                     </div>
                     
-                    <div className="flex bg-[#091321] border border-[#233247] rounded-lg p-1 w-full md:w-auto">
+                    <div className="flex bg-[#091321] border border-[#233247] rounded-lg p-1 w-full md:w-auto overflow-hidden">
                       <button 
                         onClick={() => setFlightView('2d')}
-                        className={`flex-1 md:flex-none px-4 py-2 text-[10px] font-bold font-mono rounded-md transition ${flightView === '2d' ? 'bg-fuchsia-500/20 text-fuchsia-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}
+                        className={`flex-1 md:flex-none px-3 py-2 text-[9px] md:text-[10px] font-bold font-mono rounded-md transition ${flightView === '2d' ? 'bg-fuchsia-500/20 text-fuchsia-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}
                       >
                         2D GRAPH
                       </button>
                       <button 
-                        onClick={() => setFlightView('3d')}
-                        className={`flex-1 md:flex-none px-4 py-2 text-[10px] font-bold font-mono rounded-md transition ${flightView === '3d' ? 'bg-fuchsia-500/20 text-fuchsia-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}
+                        onClick={() => setFlightView('3d-launch')}
+                        className={`flex-1 md:flex-none px-3 py-2 text-[9px] md:text-[10px] font-bold font-mono rounded-md transition ${flightView === '3d-launch' ? 'bg-fuchsia-500/20 text-fuchsia-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}
                       >
-                        3D ORBIT
+                        3D LAUNCH
+                      </button>
+                      <button 
+                        onClick={() => setFlightView('global')}
+                        className={`flex-1 md:flex-none px-3 py-2 text-[9px] md:text-[10px] font-bold font-mono rounded-md transition ${flightView === 'global' ? 'bg-fuchsia-500/20 text-fuchsia-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}
+                      >
+                        GLOBAL ORBIT
                       </button>
                     </div>
                   </div>
@@ -958,12 +1116,11 @@
                   
                   <div className="relative rounded-xl overflow-hidden border border-[#233247] shadow-inner bg-[#091321]">
                     
-                    {flightView === '2d' 
-                      ? <TelemetryArcViewer2D rocket={activeRocket} progress={flightProgress} currentAlt={currentAlt} trajData={trajData} />
-                      : <TelemetryArcViewer3D rocket={activeRocket} progress={flightProgress} trajData={trajData} />
-                    }
+                    {flightView === '2d' && <TelemetryArcViewer2D rocket={activeRocket} progress={flightProgress} currentAlt={currentAlt} trajData={trajData} />}
+                    {flightView === '3d-launch' && <TelemetryArcViewer3D rocket={activeRocket} progress={flightProgress} trajData={trajData} />}
+                    {flightView === 'global' && <TelemetryOrbitViewer3D rocket={activeRocket} progress={flightProgress} />}
 
-                    {/* SCALED DOWN HUD CONTAINERS (50% size reduction via padding and typography) */}
+                    {/* SCALED DOWN HUD CONTAINERS */}
                     <div className="absolute top-3 left-3 right-3 flex gap-2 pointer-events-none">
                       <div className="bg-[#091321]/70 backdrop-blur-md border border-slate-600/30 rounded-lg p-2.5 flex flex-col shadow-2xl pointer-events-auto min-w-[100px]">
                         <span className="text-[9px] text-slate-400 font-mono mb-0.5">EST. ALTITUDE</span>
@@ -1004,26 +1161,22 @@
                       
                       {/* DYNAMIC POSITIONED MILESTONE LABELS */}
                       <div className="relative w-full h-4 text-[10px] sm:text-xs font-mono text-slate-400 mt-4 px-1">
-                        
                         <span 
                           className={`absolute top-0 -translate-x-1/2 whitespace-nowrap ${flightProgress >= (trajData.tMaxQ * 100) ? "text-fuchsia-400 font-bold" : ""}`}
                           style={{ left: `${trajData.tMaxQ * 100}%` }}
                         >
                           MAX-Q (15km)
                         </span>
-
                         <span 
                           className={`absolute top-0 -translate-x-1/2 whitespace-nowrap ${flightProgress >= (trajData.tMeco * 100) ? "text-fuchsia-400 font-bold" : ""}`}
                           style={{ left: `${trajData.tMeco * 100}%` }}
                         >
                           {isSuborbital ? 'APOGEE (100km)' : 'MECO (150km)'}
                         </span>
-
                         <span className={`absolute right-0 top-0 ${flightProgress === 100 ? "text-fuchsia-400 font-bold" : ""}`}>
                           {isSuborbital ? 'SPLASHDOWN' : 'ORBIT (500km)'}
                         </span>
                       </div>
-
                     </div>
                   </div>
                 </div>
