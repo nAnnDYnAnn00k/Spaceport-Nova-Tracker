@@ -375,7 +375,7 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- 2D TELEMETRY ARC VIEWER ---
+    // --- 2D TELEMETRY ARC VIEWER (WITH MOBILE SCROLL) ---
     function TelemetryArcViewer2D({ rocket, progress, currentAlt, trajData }) {
       const isSuborbital = rocket.missionType === 'Suborbital';
       const maxX = isSuborbital ? 100 : 2000;
@@ -716,14 +716,12 @@
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan = false;
-        // Scaled down camera constraints by 50%
         controls.minDistance = 60;
         controls.maxDistance = 200;
 
         const earthGroup = new THREE.Group();
         scene.add(earthGroup);
 
-        // Scaled down earth radius by 50%
         const earthRadius = 50;
         const coreGeo = new THREE.SphereGeometry(earthRadius, 32, 32);
         const coreMat = new THREE.MeshBasicMaterial({ color: 0x07101c });
@@ -733,7 +731,6 @@
         const wireGeo = new THREE.EdgesGeometry(new THREE.SphereGeometry(earthRadius, 16, 16));
         earthGroup.add(new THREE.LineSegments(wireGeo, wireMat));
 
-        // Scaled down equator ring limits
         const eqGeo = new THREE.RingGeometry(earthRadius + 0.5, earthRadius + 0.75, 64);
         const eqMat = new THREE.MeshBasicMaterial({ color: 0x334155, side: THREE.DoubleSide });
         const equator = new THREE.Mesh(eqGeo, eqMat);
@@ -747,7 +744,6 @@
         const cz = earthRadius * Math.cos(latRad) * Math.cos(lonRad);
         const padPos = new THREE.Vector3(cx, cy, cz);
         
-        // Scaled down pad marker
         const padMesh = new THREE.Mesh(new THREE.SphereGeometry(0.75, 8, 8), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
         padMesh.position.copy(padPos);
         earthGroup.add(padMesh);
@@ -756,7 +752,6 @@
         if (rocket.orbit.includes('98')) inc = 98.1;
         if (rocket.orbit.includes('87')) inc = 87.9;
         
-        // Scaled down orbit gap
         const orbitRadius = earthRadius + 6; 
         
         const orbitGroup = new THREE.Group();
@@ -777,12 +772,13 @@
         const rocketPivot = new THREE.Group();
         orbitGroup.add(rocketPivot);
 
-        // Scaled down rocket cone
         const rocketGeo = new THREE.ConeGeometry(0.75, 2, 8);
         const rocketMesh = new THREE.Mesh(rocketGeo, new THREE.MeshBasicMaterial({ color: 0x22d3ee }));
         rocketPivot.add(rocketMesh);
 
-        camera.position.set(cx * 2.5, cy * 2.5, cz * 2.5);
+        // Initial Camera Setup: Zoomed out to max distance, viewing from the side (East)
+        // This provides a clear profile view of the launch ascent and orbital insertion
+        camera.position.set(140, 50, 130); 
         controls.target.set(0, 0, 0);
 
         sceneRef.current = { rocketPivot, rocketMesh, autoOrbitAngle: 0.25 };
@@ -801,7 +797,6 @@
                const insertionAngle = 0.25;
                rocketPivot.rotation.x = t * insertionAngle;
                
-               // Scaled down ascent altitude math
                const alt = 50 + Math.sin(t * Math.PI / 2) * 6;
                rocketMesh.position.set(0, 0, alt);
                
