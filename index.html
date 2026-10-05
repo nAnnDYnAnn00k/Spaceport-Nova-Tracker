@@ -349,12 +349,11 @@
           }
           
           scene.traverse((object) => {
-            if (object.isMesh || object.isLine) {
-              if (object.geometry) object.geometry.dispose();
-              if (object.material) {
-                if (Array.isArray(object.material)) object.material.forEach(m => m.dispose());
-                else object.material.dispose();
-              }
+            if (object.geometry) object.geometry.dispose();
+            if (object.material) {
+              if (object.material.map) object.material.map.dispose();
+              if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+              else object.material.dispose();
             }
           });
           
@@ -376,6 +375,7 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
+    // --- 2D TELEMETRY ARC VIEWER (WITH MOBILE SCROLL) ---
     function TelemetryArcViewer2D({ rocket, progress, currentAlt, trajData }) {
       const isSuborbital = rocket.missionType === 'Suborbital';
       const maxX = isSuborbital ? 100 : 2000;
@@ -478,6 +478,7 @@
       );
     }
 
+    // --- 3D LAUNCH VIEWER ---
     function TelemetryArcViewer3D({ rocket, progress, trajData }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
@@ -796,7 +797,8 @@
         const rocketMesh = new THREE.Mesh(rocketGeo, new THREE.MeshBasicMaterial({ color: 0x22d3ee }));
         rocketPivot.add(rocketMesh);
 
-        camera.position.set(70, 25, 65); 
+        // Initial Camera Setup: Closer, higher angle (bird's eye), viewed from the West
+        camera.position.set(-50, 45, 35); 
         controls.target.set(0, 0, 0);
 
         // Custom Pointer Rotation Logic (Single-touch lock and speed limit)
@@ -855,6 +857,7 @@
           frameId = requestAnimationFrame(animate);
           controls.update();
           
+          // Apply native auto-spin around the Earth's local North-South axis
           const autoSpin = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.0005);
           earthGroup.quaternion.multiply(autoSpin);
           
