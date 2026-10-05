@@ -124,7 +124,6 @@
       };
     };
 
-    // --- HIGH-RES 3D MASTER PLAN VIEWER ---
     function EnhancedThreeViewer({ year }) {
       const mountRef = useRef(null);
       const phasesRef = useRef({});
@@ -375,7 +374,6 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- 2D TELEMETRY ARC VIEWER (WITH MOBILE SCROLL) ---
     function TelemetryArcViewer2D({ rocket, progress, currentAlt, trajData }) {
       const isSuborbital = rocket.missionType === 'Suborbital';
       const maxX = isSuborbital ? 100 : 2000;
@@ -478,7 +476,6 @@
       );
     }
 
-    // --- 3D LAUNCH VIEWER ---
     function TelemetryArcViewer3D({ rocket, progress, trajData }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
@@ -688,7 +685,7 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- GLOBAL ORBIT 3D VIEWER (SCALED DOWN 50%) ---
+    // --- GLOBAL ORBIT 3D VIEWER (SCALED DOWN 50% WITH ASCENT TRACE) ---
     function TelemetryOrbitViewer3D({ rocket, progress }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
@@ -716,13 +713,15 @@
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan = false;
-        controls.minDistance = 60;
-        controls.maxDistance = 200;
+        // Scaled down camera constraints by 50%
+        controls.minDistance = 30;
+        controls.maxDistance = 100;
 
         const earthGroup = new THREE.Group();
         scene.add(earthGroup);
 
-        const earthRadius = 50;
+        // Scaled down earth radius by 50%
+        const earthRadius = 25;
         const coreGeo = new THREE.SphereGeometry(earthRadius, 32, 32);
         const coreMat = new THREE.MeshBasicMaterial({ color: 0x07101c });
         earthGroup.add(new THREE.Mesh(coreGeo, coreMat));
@@ -731,7 +730,8 @@
         const wireGeo = new THREE.EdgesGeometry(new THREE.SphereGeometry(earthRadius, 16, 16));
         earthGroup.add(new THREE.LineSegments(wireGeo, wireMat));
 
-        const eqGeo = new THREE.RingGeometry(earthRadius + 0.5, earthRadius + 0.75, 64);
+        // Scaled down equator ring limits
+        const eqGeo = new THREE.RingGeometry(earthRadius + 0.25, earthRadius + 0.5, 64);
         const eqMat = new THREE.MeshBasicMaterial({ color: 0x334155, side: THREE.DoubleSide });
         const equator = new THREE.Mesh(eqGeo, eqMat);
         equator.rotation.x = Math.PI / 2;
@@ -744,7 +744,8 @@
         const cz = earthRadius * Math.cos(latRad) * Math.cos(lonRad);
         const padPos = new THREE.Vector3(cx, cy, cz);
         
-        const padMesh = new THREE.Mesh(new THREE.SphereGeometry(0.75, 8, 8), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+        // Scaled down pad marker
+        const padMesh = new THREE.Mesh(new THREE.SphereGeometry(0.375, 8, 8), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
         padMesh.position.copy(padPos);
         earthGroup.add(padMesh);
 
@@ -752,7 +753,8 @@
         if (rocket.orbit.includes('98')) inc = 98.1;
         if (rocket.orbit.includes('87')) inc = 87.9;
         
-        const orbitRadius = earthRadius + 6; 
+        // Scaled down orbit gap
+        const orbitRadius = earthRadius + 3; 
         
         const orbitGroup = new THREE.Group();
         orbitGroup.lookAt(padPos);
@@ -760,28 +762,46 @@
         orbitGroup.rotateZ(azimuthTilt);
         earthGroup.add(orbitGroup);
 
+        // Calculate visual distance downrange to hit orbit insertion
+        const insertionAngle = 0.25;
+
+        // Draw Dotted Ascent Path behind the rocket
+        const ascentPoints = [];
+        for (let i = 0; i <= 64; i++) {
+          const t_val = i / 64;
+          const alt = earthRadius + Math.sin(t_val * Math.PI / 2) * 3;
+          const a = t_val * insertionAngle;
+          ascentPoints.push(new THREE.Vector3(0, -alt * Math.sin(a), alt * Math.cos(a)));
+        }
+        const ascentGeo = new THREE.BufferGeometry().setFromPoints(ascentPoints);
+        ascentGeo.computeLineDistances(); // Required for dashed lines
+        const ascentMat = new THREE.LineDashedMaterial({ color: 0x22d3ee, dashSize: 0.2, gapSize: 0.2, transparent: true, opacity: 0.7 });
+        orbitGroup.add(new THREE.Line(ascentGeo, ascentMat));
+
+        // Draw Global Orbit Line (Dashed)
         const pathPoints = [];
         for (let i = 0; i <= 128; i++) {
           const a = (i / 128) * Math.PI * 2;
           pathPoints.push(new THREE.Vector3(0, -orbitRadius * Math.sin(a), orbitRadius * Math.cos(a)));
         }
         const lineGeo = new THREE.BufferGeometry().setFromPoints(pathPoints);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0xc026d3, transparent: true, opacity: 0.4 });
+        lineGeo.computeLineDistances(); // Required for dashed lines
+        const lineMat = new THREE.LineDashedMaterial({ color: 0xc026d3, transparent: true, opacity: 0.4, dashSize: 0.5, gapSize: 0.5 });
         orbitGroup.add(new THREE.Line(lineGeo, lineMat));
 
         const rocketPivot = new THREE.Group();
         orbitGroup.add(rocketPivot);
 
-        const rocketGeo = new THREE.ConeGeometry(0.75, 2, 8);
+        // Scaled down rocket cone
+        const rocketGeo = new THREE.ConeGeometry(0.375, 1, 8);
         const rocketMesh = new THREE.Mesh(rocketGeo, new THREE.MeshBasicMaterial({ color: 0x22d3ee }));
         rocketPivot.add(rocketMesh);
 
-        // Initial Camera Setup: Zoomed out to max distance, viewing from the side (East)
-        // This provides a clear profile view of the launch ascent and orbital insertion
-        camera.position.set(140, 50, 130); 
+        // Initial Camera Setup: Scaled down correctly
+        camera.position.set(70, 25, 65); 
         controls.target.set(0, 0, 0);
 
-        sceneRef.current = { rocketPivot, rocketMesh, autoOrbitAngle: 0.25 };
+        sceneRef.current = { rocketPivot, rocketMesh, insertionAngle, autoOrbitAngle: insertionAngle };
 
         let frameId;
         const animate = () => {
@@ -791,13 +811,13 @@
           
           if (sceneRef.current.rocketPivot) {
              const t = Math.max(0, Math.min(1, progressRef.current / 100));
-             const { rocketPivot, rocketMesh } = sceneRef.current;
+             const { rocketPivot, rocketMesh, insertionAngle } = sceneRef.current;
              
              if (t < 1) {
-               const insertionAngle = 0.25;
                rocketPivot.rotation.x = t * insertionAngle;
                
-               const alt = 50 + Math.sin(t * Math.PI / 2) * 6;
+               // Scaled down ascent altitude math
+               const alt = earthRadius + Math.sin(t * Math.PI / 2) * 3;
                rocketMesh.position.set(0, 0, alt);
                
                rocketMesh.rotation.x = (Math.PI / 2) + (t * (Math.PI / 2));
