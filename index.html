@@ -124,6 +124,7 @@
       };
     };
 
+    // --- HIGH-RES 3D MASTER PLAN VIEWER ---
     function EnhancedThreeViewer({ year }) {
       const mountRef = useRef(null);
       const phasesRef = useRef({});
@@ -216,7 +217,9 @@
           const base = new THREE.Mesh(new THREE.BoxGeometry(width, 4, depth), matBuilding);
           base.position.y = 2;
           base.castShadow = true; base.receiveShadow = true;
-          const roof = new THREE.Mesh(new THREE.CylinderGeometry(depth/2, depth/2, width, 32, 1, false, 0, Math.PI), roof.rotation.z = Math.PI / 2;
+          // FIX: Corrected missing parenthesis and split assignment to proper lines
+          const roof = new THREE.Mesh(new THREE.CylinderGeometry(depth/2, depth/2, width, 32, 1, false, 0, Math.PI), matSteel);
+          roof.rotation.z = Math.PI / 2;
           roof.position.y = 4;
           roof.castShadow = true;
           group.add(base, roof);
@@ -374,6 +377,7 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
+    // --- 2D TELEMETRY ARC VIEWER (WITH MOBILE SCROLL) ---
     function TelemetryArcViewer2D({ rocket, progress, currentAlt, trajData }) {
       const isSuborbital = rocket.missionType === 'Suborbital';
       const maxX = isSuborbital ? 100 : 2000;
@@ -476,6 +480,7 @@
       );
     }
 
+    // --- 3D LAUNCH VIEWER ---
     function TelemetryArcViewer3D({ rocket, progress, trajData }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
@@ -537,6 +542,7 @@
         const grid = new THREE.GridHelper(gridScale, 40, 0x1e293b, 0x0f172a);
         scene.add(grid);
 
+        // Ground Projection Plumb Line & Reticle
         const plumbMat = new THREE.LineDashedMaterial({ color: 0x38bdf8, dashSize: markerScale, gapSize: markerScale, transparent: true, opacity: 0.6 });
         const plumbGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)]);
         const plumbLine = new THREE.Line(plumbGeo, plumbMat);
@@ -586,6 +592,7 @@
 
         const gateGeo = new THREE.TorusGeometry(markerScale * 1.5, markerScale * 0.08, 12, 32);
         
+        // Gate 1: Max-Q (~15km)
         const posMaxQ = curve.getPoint(tMaxQ);
         const tanMaxQ = curve.getTangent(tMaxQ).normalize();
         const gateMaxQ = new THREE.Mesh(gateGeo, new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.35 }));
@@ -596,6 +603,7 @@
         spriteMaxQ.position.copy(posMaxQ.clone().add(new THREE.Vector3(0, markerScale * 2.2, 0)));
         scene.add(spriteMaxQ);
 
+        // Gate 2: Karman Line or Apogee (~100km)
         const posKarman = curve.getPoint(tKarman);
         const tanKarman = curve.getTangent(tKarman).normalize();
         const gateKarman = new THREE.Mesh(gateGeo, new THREE.MeshBasicMaterial({ color: 0xc026d3, transparent: true, opacity: 0.35 }));
@@ -607,6 +615,7 @@
         spriteKarman.position.copy(posKarman.clone().add(new THREE.Vector3(0, markerScale * 2.2, 0)));
         scene.add(spriteKarman);
 
+        // Orbital additional gates: MECO (~150km)
         if (rocket.missionType !== 'Suborbital') {
           const posMeco = curve.getPoint(tMeco);
           const tanMeco = curve.getTangent(tMeco).normalize();
@@ -1182,7 +1191,7 @@
                         >
                           {isSuborbital ? 'APOGEE (100km)' : 'MECO (150km)'}
                         </span>
-                        <span className={`absolute right-0 top-0 ${flightProgress >= 100 ? "text-fuchsia-400 font-bold" : ""}`}>
+                        <span className={`absolute right-0 top-0 ${flightProgress === 100 ? "text-fuchsia-400 font-bold" : ""}`}>
                           {isSuborbital ? 'SPLASHDOWN' : 'ORBIT (500km)'}
                         </span>
                       </div>
