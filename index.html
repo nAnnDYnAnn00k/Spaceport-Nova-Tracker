@@ -348,11 +348,10 @@
           }
           
           scene.traverse((object) => {
-            if (object.isMesh || object.isLine || object.isSprite) {
+            if (object.isMesh || object.isLine) {
               if (object.geometry) object.geometry.dispose();
               if (object.material) {
-                if (object.material.map) object.material.map.dispose();
-                if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+                if (Array.isArray(object.material)) object.material.forEach(m => m.dispose());
                 else object.material.dispose();
               }
             }
@@ -647,13 +646,11 @@
           }
           
           scene.traverse((object) => {
-            if (object.isMesh || object.isLine || object.isSprite) {
-              if (object.geometry) object.geometry.dispose();
-              if (object.material) {
-                if (object.material.map) object.material.map.dispose();
-                if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
-                else object.material.dispose();
-              }
+            if (object.geometry) object.geometry.dispose();
+            if (object.material) {
+              if (object.material.map) object.material.map.dispose();
+              if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+              else object.material.dispose();
             }
           });
           
@@ -689,7 +686,7 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- GLOBAL ORBIT 3D VIEWER (SCALED DOWN 50% WITH ASCENT TRACE DEBUGGED) ---
+    // --- GLOBAL ORBIT 3D VIEWER (TRUE UNBOUND ROTATION) ---
     function TelemetryOrbitViewer3D({ rocket, progress }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
@@ -712,11 +709,15 @@
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(w, h);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        
+        // Critical: Prevent mobile scrolling when dragging the canvas
+        renderer.domElement.style.touchAction = 'none';
         currentContainer.appendChild(renderer.domElement);
 
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan = false;
+        controls.enableRotate = false; // Disable default rotation to bypass pole locking
         controls.minDistance = 30;
         controls.maxDistance = 100;
 
@@ -763,7 +764,6 @@
 
         const insertionAngle = 0.25;
 
-        // Draw Dotted Ascent Path behind the rocket
         const ascentPoints = [];
         for (let i = 0; i <= 64; i++) {
           const t_val = i / 64;
@@ -774,10 +774,9 @@
         const ascentGeo = new THREE.BufferGeometry().setFromPoints(ascentPoints);
         const ascentMat = new THREE.LineDashedMaterial({ color: 0x22d3ee, dashSize: 0.2, gapSize: 0.2, transparent: true, opacity: 0.7 });
         const ascentLine = new THREE.Line(ascentGeo, ascentMat);
-        ascentLine.computeLineDistances(); // PROPER MOUNTING
+        ascentLine.computeLineDistances();
         orbitGroup.add(ascentLine);
 
-        // Draw Global Orbit Line (Dashed)
         const pathPoints = [];
         for (let i = 0; i <= 128; i++) {
           const a = (i / 128) * Math.PI * 2;
@@ -786,7 +785,7 @@
         const lineGeo = new THREE.BufferGeometry().setFromPoints(pathPoints);
         const lineMat = new THREE.LineDashedMaterial({ color: 0xc026d3, transparent: true, opacity: 0.4, dashSize: 0.5, gapSize: 0.5 });
         const orbitLine = new THREE.Line(lineGeo, lineMat);
-        orbitLine.computeLineDistances(); // PROPER MOUNTING
+        orbitLine.computeLineDistances();
         orbitGroup.add(orbitLine);
 
         const rocketPivot = new THREE.Group();
@@ -799,13 +798,51 @@
         camera.position.set(70, 25, 65); 
         controls.target.set(0, 0, 0);
 
+        // Custom Pointer Rotation Logic (Bypasses Gimbal Lock)
+        let isDragging = false;
+        let prevX = 0, prevY = 0;
+
+        const onPointerDown = (e) => {
+          isDragging = true;
+          prevX = e.clientX;
+          prevY = e.clientY;
+        };
+
+        const onPointerUp = () => { isDragging = false; };
+
+        const onPointerMove = (e) => {
+          if (!isDragging) return;
+          const deltaX = e.clientX - prevX;
+          const deltaY = e.clientY - prevY;
+          
+          // Calculate camera's localized up/right vectors to tumble natively
+          const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+          const camUp = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+          
+          const qX = new THREE.Quaternion().setFromAxisAngle(camUp, deltaX * 0.005);
+          const qY = new THREE.Quaternion().setFromAxisAngle(camRight, deltaY * 0.005);
+          
+          earthGroup.quaternion.premultiply(qX);
+          earthGroup.quaternion.premultiply(qY);
+          
+          prevX = e.clientX;
+          prevY = e.clientY;
+        };
+
+        renderer.domElement.addEventListener('pointerdown', onPointerDown);
+        window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointermove', onPointerMove);
+
         sceneRef.current = { rocketPivot, rocketMesh, insertionAngle, autoOrbitAngle: insertionAngle };
 
         let frameId;
         const animate = () => {
           frameId = requestAnimationFrame(animate);
           controls.update();
-          earthGroup.rotation.y += 0.0005;
+          
+          // Apply native auto-spin around the Earth's local North-South axis
+          const autoSpin = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.0005);
+          earthGroup.quaternion.multiply(autoSpin);
           
           if (sceneRef.current.rocketPivot) {
              const t = Math.max(0, Math.min(1, progressRef.current / 100));
@@ -842,18 +879,20 @@
         return () => {
           cancelAnimationFrame(frameId);
           window.removeEventListener('resize', handleResize);
+          renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+          window.removeEventListener('pointerup', onPointerUp);
+          window.removeEventListener('pointermove', onPointerMove);
+
           if (currentContainer && currentContainer.contains(renderer.domElement)) {
             currentContainer.removeChild(renderer.domElement);
           }
           
           scene.traverse((object) => {
-            if (object.isMesh || object.isLine || object.isSprite) {
-              if (object.geometry) object.geometry.dispose();
-              if (object.material) {
-                if (object.material.map) object.material.map.dispose();
-                if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
-                else object.material.dispose();
-              }
+            if (object.geometry) object.geometry.dispose();
+            if (object.material) {
+              if (object.material.map) object.material.map.dispose();
+              if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+              else object.material.dispose();
             }
           });
           
