@@ -348,11 +348,13 @@
           }
           
           scene.traverse((object) => {
-            if (object.geometry) object.geometry.dispose();
-            if (object.material) {
-              if (object.material.map) object.material.map.dispose();
-              if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
-              else object.material.dispose();
+            if (object.isMesh || object.isLine || object.isSprite) {
+              if (object.geometry) object.geometry.dispose();
+              if (object.material) {
+                if (object.material.map) object.material.map.dispose();
+                if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+                else object.material.dispose();
+              }
             }
           });
           
@@ -645,11 +647,13 @@
           }
           
           scene.traverse((object) => {
-            if (object.geometry) object.geometry.dispose();
-            if (object.material) {
-              if (object.material.map) object.material.map.dispose();
-              if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
-              else object.material.dispose();
+            if (object.isMesh || object.isLine || object.isSprite) {
+              if (object.geometry) object.geometry.dispose();
+              if (object.material) {
+                if (object.material.map) object.material.map.dispose();
+                if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+                else object.material.dispose();
+              }
             }
           });
           
@@ -685,7 +689,7 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- GLOBAL ORBIT 3D VIEWER (SCALED DOWN 50% WITH ASCENT TRACE) ---
+    // --- GLOBAL ORBIT 3D VIEWER (SCALED DOWN 50% WITH ASCENT TRACE DEBUGGED) ---
     function TelemetryOrbitViewer3D({ rocket, progress }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
@@ -713,14 +717,12 @@
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan = false;
-        // Scaled down camera constraints by 50%
         controls.minDistance = 30;
         controls.maxDistance = 100;
 
         const earthGroup = new THREE.Group();
         scene.add(earthGroup);
 
-        // Scaled down earth radius by 50%
         const earthRadius = 25;
         const coreGeo = new THREE.SphereGeometry(earthRadius, 32, 32);
         const coreMat = new THREE.MeshBasicMaterial({ color: 0x07101c });
@@ -730,7 +732,6 @@
         const wireGeo = new THREE.EdgesGeometry(new THREE.SphereGeometry(earthRadius, 16, 16));
         earthGroup.add(new THREE.LineSegments(wireGeo, wireMat));
 
-        // Scaled down equator ring limits
         const eqGeo = new THREE.RingGeometry(earthRadius + 0.25, earthRadius + 0.5, 64);
         const eqMat = new THREE.MeshBasicMaterial({ color: 0x334155, side: THREE.DoubleSide });
         const equator = new THREE.Mesh(eqGeo, eqMat);
@@ -744,7 +745,6 @@
         const cz = earthRadius * Math.cos(latRad) * Math.cos(lonRad);
         const padPos = new THREE.Vector3(cx, cy, cz);
         
-        // Scaled down pad marker
         const padMesh = new THREE.Mesh(new THREE.SphereGeometry(0.375, 8, 8), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
         padMesh.position.copy(padPos);
         earthGroup.add(padMesh);
@@ -753,7 +753,6 @@
         if (rocket.orbit.includes('98')) inc = 98.1;
         if (rocket.orbit.includes('87')) inc = 87.9;
         
-        // Scaled down orbit gap
         const orbitRadius = earthRadius + 3; 
         
         const orbitGroup = new THREE.Group();
@@ -762,7 +761,6 @@
         orbitGroup.rotateZ(azimuthTilt);
         earthGroup.add(orbitGroup);
 
-        // Calculate visual distance downrange to hit orbit insertion
         const insertionAngle = 0.25;
 
         // Draw Dotted Ascent Path behind the rocket
@@ -774,9 +772,10 @@
           ascentPoints.push(new THREE.Vector3(0, -alt * Math.sin(a), alt * Math.cos(a)));
         }
         const ascentGeo = new THREE.BufferGeometry().setFromPoints(ascentPoints);
-        ascentGeo.computeLineDistances(); // Required for dashed lines
         const ascentMat = new THREE.LineDashedMaterial({ color: 0x22d3ee, dashSize: 0.2, gapSize: 0.2, transparent: true, opacity: 0.7 });
-        orbitGroup.add(new THREE.Line(ascentGeo, ascentMat));
+        const ascentLine = new THREE.Line(ascentGeo, ascentMat);
+        ascentLine.computeLineDistances(); // PROPER MOUNTING
+        orbitGroup.add(ascentLine);
 
         // Draw Global Orbit Line (Dashed)
         const pathPoints = [];
@@ -785,19 +784,18 @@
           pathPoints.push(new THREE.Vector3(0, -orbitRadius * Math.sin(a), orbitRadius * Math.cos(a)));
         }
         const lineGeo = new THREE.BufferGeometry().setFromPoints(pathPoints);
-        lineGeo.computeLineDistances(); // Required for dashed lines
         const lineMat = new THREE.LineDashedMaterial({ color: 0xc026d3, transparent: true, opacity: 0.4, dashSize: 0.5, gapSize: 0.5 });
-        orbitGroup.add(new THREE.Line(lineGeo, lineMat));
+        const orbitLine = new THREE.Line(lineGeo, lineMat);
+        orbitLine.computeLineDistances(); // PROPER MOUNTING
+        orbitGroup.add(orbitLine);
 
         const rocketPivot = new THREE.Group();
         orbitGroup.add(rocketPivot);
 
-        // Scaled down rocket cone
         const rocketGeo = new THREE.ConeGeometry(0.375, 1, 8);
         const rocketMesh = new THREE.Mesh(rocketGeo, new THREE.MeshBasicMaterial({ color: 0x22d3ee }));
         rocketPivot.add(rocketMesh);
 
-        // Initial Camera Setup: Scaled down correctly
         camera.position.set(70, 25, 65); 
         controls.target.set(0, 0, 0);
 
@@ -816,7 +814,6 @@
              if (t < 1) {
                rocketPivot.rotation.x = t * insertionAngle;
                
-               // Scaled down ascent altitude math
                const alt = earthRadius + Math.sin(t * Math.PI / 2) * 3;
                rocketMesh.position.set(0, 0, alt);
                
@@ -850,11 +847,13 @@
           }
           
           scene.traverse((object) => {
-            if (object.geometry) object.geometry.dispose();
-            if (object.material) {
-              if (object.material.map) object.material.map.dispose();
-              if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
-              else object.material.dispose();
+            if (object.isMesh || object.isLine || object.isSprite) {
+              if (object.geometry) object.geometry.dispose();
+              if (object.material) {
+                if (object.material.map) object.material.map.dispose();
+                if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+                else object.material.dispose();
+              }
             }
           });
           
