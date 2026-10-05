@@ -91,6 +91,7 @@
 
     // --- SYNCHRONIZED TRAJECTORY MATH ---
     const getTrajectoryData = (isSuborbital) => {
+      // Explicit control points align the Catmull-Rom curve naturally with the target altitudes
       const points = isSuborbital ? [
         new THREE.Vector3(0, 0, 0),
         new THREE.Vector3(15, 50, 0),
@@ -107,6 +108,7 @@
       
       const curve = new THREE.CatmullRomCurve3(points);
       
+      // Locate the exact mathematical 't' value where the rocket crosses specific altitude boundaries
       const findT = (targetY, maxScanT = 1) => {
         let bestT = 0, minDiff = Infinity;
         for (let time = 0; time <= maxScanT; time += 0.005) {
@@ -348,6 +350,7 @@
           if (currentContainer && currentContainer.contains(renderer.domElement)) {
             currentContainer.removeChild(renderer.domElement);
           }
+          
           scene.traverse((object) => {
             if (object.isMesh || object.isLine) {
               if (object.geometry) object.geometry.dispose();
@@ -357,6 +360,7 @@
               }
             }
           });
+          
           renderer.dispose();
         };
       }, []);
@@ -411,63 +415,65 @@
       }
 
       return (
-        <div className="w-full h-[550px] bg-[#091321] relative flex items-center justify-center pointer-events-none">
-          <svg viewBox="0 0 950 300" className="w-full h-full">
-            <line x1="50" y1="260" x2="900" y2="260" stroke="#1e293b" strokeWidth="2" />
-            <line x1="50" y1="40" x2="50" y2="260" stroke="#1e293b" strokeWidth="2" />
-            <line x1="50" y1="150" x2="900" y2="150" stroke="#0f172a" strokeWidth="1" />
-            
-            {maxY >= 100 && (
-              <g>
-                <line x1="50" y1={mapY(100)} x2="900" y2={mapY(100)} stroke="#334155" strokeDasharray="4 4" strokeWidth="1" />
-                <text x="900" y={mapY(100) - 6} fill="#64748b" fontSize="12" textAnchor="end" className="font-mono">KARMAN LINE (100km)</text>
-              </g>
-            )}
-            
-            <text x="40" y="265" fill="#475569" fontSize="12" textAnchor="end" className="font-mono">0km</text>
-            <text x="40" y="45" fill="#475569" fontSize="12" textAnchor="end" className="font-mono">{maxY}km</text>
-            <text x="900" y="280" fill="#475569" fontSize="12" textAnchor="end" className="font-mono">Downrange ({maxX}km)</text>
-
-            <polyline points={svgPath} fill="none" stroke="#c026d3" strokeWidth="3" />
-
-            {/* Static Altitude Milestone Nodes (Enlarged Text) */}
-            {milestones.map((m, idx) => {
-              const pt = curve.getPoint(m.t);
-              const px = mapX(pt.x);
-              const py = mapY(pt.y);
-              return (
-                <g key={idx}>
-                  <circle cx={px} cy={py} r="5" fill="#38bdf8" stroke="#091321" strokeWidth="2" />
-                  <text 
-                    x={px + m.dx} 
-                    y={py + m.dy} 
-                    fill="#94a3b8" 
-                    fontSize="12" 
-                    textAnchor={m.align} 
-                    className="font-mono font-bold"
-                  >
-                    {m.label} ({m.alt})
-                  </text>
+        <div className="w-full h-[550px] bg-[#091321] relative overflow-x-auto overflow-y-hidden touch-pan-x flex justify-start md:justify-center no-scrollbar pointer-events-auto">
+          <div className="min-w-[850px] w-full h-full relative flex items-center justify-center pointer-events-none">
+            <svg viewBox="0 0 950 300" className="w-full h-full">
+              <line x1="50" y1="260" x2="900" y2="260" stroke="#1e293b" strokeWidth="2" />
+              <line x1="50" y1="40" x2="50" y2="260" stroke="#1e293b" strokeWidth="2" />
+              <line x1="50" y1="150" x2="900" y2="150" stroke="#0f172a" strokeWidth="1" />
+              
+              {maxY >= 100 && (
+                <g>
+                  <line x1="50" y1={mapY(100)} x2="900" y2={mapY(100)} stroke="#334155" strokeDasharray="4 4" strokeWidth="1" />
+                  <text x="900" y={mapY(100) - 6} fill="#64748b" fontSize="12" textAnchor="end" className="font-mono">KARMAN LINE (100km)</text>
                 </g>
-              );
-            })}
+              )}
+              
+              <text x="40" y="265" fill="#475569" fontSize="12" textAnchor="end" className="font-mono">0km</text>
+              <text x="40" y="45" fill="#475569" fontSize="12" textAnchor="end" className="font-mono">{maxY}km</text>
+              <text x="900" y="280" fill="#475569" fontSize="12" textAnchor="end" className="font-mono">Downrange ({maxX}km)</text>
 
-            {/* Live Vertical Drop Plumb Line & Footprint Reticle */}
-            <line x1={rocketPx} y1={rocketPy} x2={rocketPx} y2="260" stroke="#38bdf8" strokeDasharray="3 3" opacity="0.5" strokeWidth="1.5" />
-            <ellipse cx={rocketPx} cy="260" rx="6" ry="2" fill="#38bdf8" opacity="0.8" />
+              <polyline points={svgPath} fill="none" stroke="#c026d3" strokeWidth="3" />
 
-            {/* Live Floating Altitude Badge over Rocket (Enlarged Text & Box) */}
-            <g transform={`translate(${rocketPx}, ${rocketPy - 30})`}>
-              <rect x="-32" y="-12" width="64" height="22" rx="4" fill="#091321" stroke="#38bdf8" strokeWidth="1" opacity="0.95" />
-              <text x="0" y="4" fill="#38bdf8" fontSize="12" fontWeight="bold" textAnchor="middle" className="font-mono">{currentAlt} km</text>
-            </g>
-            
-            {/* Rocket Telemetry Marker */}
-            <g transform={`translate(${rocketPx}, ${rocketPy}) rotate(${rotation})`}>
-              <polygon points="-10,-6 14,0 -10,6 -5,0" fill="#22d3ee" />
-              <circle cx="-10" cy="0" r="6" fill="#c026d3" opacity="0.4" />
-            </g>
-          </svg>
+              {/* Static Altitude Milestone Nodes (Enlarged Text) */}
+              {milestones.map((m, idx) => {
+                const pt = curve.getPoint(m.t);
+                const px = mapX(pt.x);
+                const py = mapY(pt.y);
+                return (
+                  <g key={idx}>
+                    <circle cx={px} cy={py} r="5" fill="#38bdf8" stroke="#091321" strokeWidth="2" />
+                    <text 
+                      x={px + m.dx} 
+                      y={py + m.dy} 
+                      fill="#94a3b8" 
+                      fontSize="12" 
+                      textAnchor={m.align} 
+                      className="font-mono font-bold"
+                    >
+                      {m.label} ({m.alt})
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Live Vertical Drop Plumb Line & Footprint Reticle */}
+              <line x1={rocketPx} y1={rocketPy} x2={rocketPx} y2="260" stroke="#38bdf8" strokeDasharray="3 3" opacity="0.5" strokeWidth="1.5" />
+              <ellipse cx={rocketPx} cy="260" rx="6" ry="2" fill="#38bdf8" opacity="0.8" />
+
+              {/* Live Floating Altitude Badge over Rocket (Enlarged Text & Box) */}
+              <g transform={`translate(${rocketPx}, ${rocketPy - 30})`}>
+                <rect x="-32" y="-12" width="64" height="22" rx="4" fill="#091321" stroke="#38bdf8" strokeWidth="1" opacity="0.95" />
+                <text x="0" y="4" fill="#38bdf8" fontSize="12" fontWeight="bold" textAnchor="middle" className="font-mono">{currentAlt} km</text>
+              </g>
+              
+              {/* Rocket Telemetry Marker */}
+              <g transform={`translate(${rocketPx}, ${rocketPy}) rotate(${rotation})`}>
+                <polygon points="-10,-6 14,0 -10,6 -5,0" fill="#22d3ee" />
+                <circle cx="-10" cy="0" r="6" fill="#c026d3" opacity="0.4" />
+              </g>
+            </svg>
+          </div>
         </div>
       );
     }
@@ -955,15 +961,14 @@
                       : <TelemetryArcViewer3D rocket={activeRocket} progress={flightProgress} trajData={trajData} />
                     }
 
-                    {/* SCALED DOWN HUD CONTAINERS (50% size reduction via padding and typography) */}
-                    <div className="absolute top-3 left-3 right-3 flex gap-2 pointer-events-none">
-                      <div className="bg-[#091321]/70 backdrop-blur-md border border-slate-600/30 rounded-lg p-2.5 flex flex-col shadow-2xl pointer-events-auto min-w-[100px]">
-                        <span className="text-[9px] text-slate-400 font-mono mb-0.5">EST. ALTITUDE</span>
-                        <span className="text-lg font-bold text-cyan-400 font-mono">{currentAlt.toLocaleString()} <span className="text-xs text-slate-400">km</span></span>
+                    <div className="absolute top-5 left-5 right-5 flex gap-4 pointer-events-none">
+                      <div className="bg-[#091321]/70 backdrop-blur-md border border-slate-600/30 rounded-xl p-4 flex flex-col shadow-2xl pointer-events-auto min-w-[140px]">
+                        <span className="text-[10px] text-slate-400 font-mono mb-1">EST. ALTITUDE</span>
+                        <span className="text-2xl font-bold text-cyan-400 font-mono">{currentAlt.toLocaleString()} <span className="text-sm text-slate-400">km</span></span>
                       </div>
-                      <div className="bg-[#091321]/70 backdrop-blur-md border border-slate-600/30 rounded-lg p-2.5 flex flex-col shadow-2xl pointer-events-auto min-w-[100px]">
-                        <span className="text-[9px] text-slate-400 font-mono mb-0.5">EST. VELOCITY</span>
-                        <span className="text-lg font-bold text-fuchsia-400 font-mono">{currentVel.toLocaleString()} <span className="text-xs text-slate-400">km/h</span></span>
+                      <div className="bg-[#091321]/70 backdrop-blur-md border border-slate-600/30 rounded-xl p-4 flex flex-col shadow-2xl pointer-events-auto min-w-[140px]">
+                        <span className="text-[10px] text-slate-400 font-mono mb-1">EST. VELOCITY</span>
+                        <span className="text-2xl font-bold text-fuchsia-400 font-mono">{currentVel.toLocaleString()} <span className="text-sm text-slate-400">km/h</span></span>
                       </div>
                     </div>
 
