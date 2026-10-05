@@ -217,7 +217,6 @@
           const base = new THREE.Mesh(new THREE.BoxGeometry(width, 4, depth), matBuilding);
           base.position.y = 2;
           base.castShadow = true; base.receiveShadow = true;
-          // FIX: Corrected missing parenthesis and split assignment to proper lines
           const roof = new THREE.Mesh(new THREE.CylinderGeometry(depth/2, depth/2, width, 32, 1, false, 0, Math.PI), matSteel);
           roof.rotation.z = Math.PI / 2;
           roof.position.y = 4;
@@ -350,12 +349,11 @@
           }
           
           scene.traverse((object) => {
-            if (object.isMesh || object.isLine) {
-              if (object.geometry) object.geometry.dispose();
-              if (object.material) {
-                if (Array.isArray(object.material)) object.material.forEach(m => m.dispose());
-                else object.material.dispose();
-              }
+            if (object.geometry) object.geometry.dispose();
+            if (object.material) {
+              if (object.material.map) object.material.map.dispose();
+              if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+              else object.material.dispose();
             }
           });
           
@@ -377,7 +375,7 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- 2D TELEMETRY ARC VIEWER (WITH MOBILE SCROLL) ---
+    // --- 2D TELEMETRY ARC VIEWER ---
     function TelemetryArcViewer2D({ rocket, progress, currentAlt, trajData }) {
       const isSuborbital = rocket.missionType === 'Suborbital';
       const maxX = isSuborbital ? 100 : 2000;
@@ -542,7 +540,6 @@
         const grid = new THREE.GridHelper(gridScale, 40, 0x1e293b, 0x0f172a);
         scene.add(grid);
 
-        // Ground Projection Plumb Line & Reticle
         const plumbMat = new THREE.LineDashedMaterial({ color: 0x38bdf8, dashSize: markerScale, gapSize: markerScale, transparent: true, opacity: 0.6 });
         const plumbGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)]);
         const plumbLine = new THREE.Line(plumbGeo, plumbMat);
@@ -592,7 +589,6 @@
 
         const gateGeo = new THREE.TorusGeometry(markerScale * 1.5, markerScale * 0.08, 12, 32);
         
-        // Gate 1: Max-Q (~15km)
         const posMaxQ = curve.getPoint(tMaxQ);
         const tanMaxQ = curve.getTangent(tMaxQ).normalize();
         const gateMaxQ = new THREE.Mesh(gateGeo, new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.35 }));
@@ -603,7 +599,6 @@
         spriteMaxQ.position.copy(posMaxQ.clone().add(new THREE.Vector3(0, markerScale * 2.2, 0)));
         scene.add(spriteMaxQ);
 
-        // Gate 2: Karman Line or Apogee (~100km)
         const posKarman = curve.getPoint(tKarman);
         const tanKarman = curve.getTangent(tKarman).normalize();
         const gateKarman = new THREE.Mesh(gateGeo, new THREE.MeshBasicMaterial({ color: 0xc026d3, transparent: true, opacity: 0.35 }));
@@ -615,7 +610,6 @@
         spriteKarman.position.copy(posKarman.clone().add(new THREE.Vector3(0, markerScale * 2.2, 0)));
         scene.add(spriteKarman);
 
-        // Orbital additional gates: MECO (~150km)
         if (rocket.missionType !== 'Suborbital') {
           const posMeco = curve.getPoint(tMeco);
           const tanMeco = curve.getTangent(tMeco).normalize();
@@ -654,13 +648,11 @@
           }
           
           scene.traverse((object) => {
-            if (object.isMesh || object.isLine || object.isSprite) {
-              if (object.geometry) object.geometry.dispose();
-              if (object.material) {
-                if (object.material.map) object.material.map.dispose();
-                if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
-                else object.material.dispose();
-              }
+            if (object.geometry) object.geometry.dispose();
+            if (object.material) {
+              if (object.material.map) object.material.map.dispose();
+              if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+              else object.material.dispose();
             }
           });
           
@@ -696,13 +688,12 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- NEW: GLOBAL ORBIT 3D VIEWER (SYNCED & DEBUGGED) ---
+    // --- GLOBAL ORBIT 3D VIEWER (SCALED DOWN 50%) ---
     function TelemetryOrbitViewer3D({ rocket, progress }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
       const progressRef = useRef(progress);
 
-      // Keep a live ref of progress so the animate loop can access it without stale closures
       useEffect(() => { progressRef.current = progress; }, [progress]);
 
       useEffect(() => {
@@ -725,13 +716,15 @@
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan = false;
-        controls.minDistance = 120;
-        controls.maxDistance = 400;
+        // Scaled down camera constraints by 50%
+        controls.minDistance = 60;
+        controls.maxDistance = 200;
 
         const earthGroup = new THREE.Group();
         scene.add(earthGroup);
 
-        const earthRadius = 100;
+        // Scaled down earth radius by 50%
+        const earthRadius = 50;
         const coreGeo = new THREE.SphereGeometry(earthRadius, 32, 32);
         const coreMat = new THREE.MeshBasicMaterial({ color: 0x07101c });
         earthGroup.add(new THREE.Mesh(coreGeo, coreMat));
@@ -740,13 +733,13 @@
         const wireGeo = new THREE.EdgesGeometry(new THREE.SphereGeometry(earthRadius, 16, 16));
         earthGroup.add(new THREE.LineSegments(wireGeo, wireMat));
 
-        const eqGeo = new THREE.RingGeometry(earthRadius + 1, earthRadius + 1.5, 64);
+        // Scaled down equator ring limits
+        const eqGeo = new THREE.RingGeometry(earthRadius + 0.5, earthRadius + 0.75, 64);
         const eqMat = new THREE.MeshBasicMaterial({ color: 0x334155, side: THREE.DoubleSide });
         const equator = new THREE.Mesh(eqGeo, eqMat);
         equator.rotation.x = Math.PI / 2;
         earthGroup.add(equator);
 
-        // Calculate exact Canso Launch Pad coordinates
         const latRad = 45.3056 * (Math.PI / 180);
         const lonRad = -60.9814 * (Math.PI / 180);
         const cx = earthRadius * Math.cos(latRad) * Math.sin(lonRad);
@@ -754,7 +747,8 @@
         const cz = earthRadius * Math.cos(latRad) * Math.cos(lonRad);
         const padPos = new THREE.Vector3(cx, cy, cz);
         
-        const padMesh = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 8), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+        // Scaled down pad marker
+        const padMesh = new THREE.Mesh(new THREE.SphereGeometry(0.75, 8, 8), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
         padMesh.position.copy(padPos);
         earthGroup.add(padMesh);
 
@@ -762,12 +756,13 @@
         if (rocket.orbit.includes('98')) inc = 98.1;
         if (rocket.orbit.includes('87')) inc = 87.9;
         
-        const orbitRadius = earthRadius + 12; // Standardized visual orbital altitude
+        // Scaled down orbit gap
+        const orbitRadius = earthRadius + 6; 
         
         const orbitGroup = new THREE.Group();
-        orbitGroup.lookAt(padPos); // Aim invisible pivot directly at Canso
+        orbitGroup.lookAt(padPos);
         const azimuthTilt = (inc - 90) * (Math.PI / 180);
-        orbitGroup.rotateZ(azimuthTilt); // Tilt to requested inclination
+        orbitGroup.rotateZ(azimuthTilt);
         earthGroup.add(orbitGroup);
 
         const pathPoints = [];
@@ -782,43 +777,37 @@
         const rocketPivot = new THREE.Group();
         orbitGroup.add(rocketPivot);
 
-        const rocketGeo = new THREE.ConeGeometry(1.5, 4, 8);
+        // Scaled down rocket cone
+        const rocketGeo = new THREE.ConeGeometry(0.75, 2, 8);
         const rocketMesh = new THREE.Mesh(rocketGeo, new THREE.MeshBasicMaterial({ color: 0x22d3ee }));
-        // Rocket setup is handled dynamically in the animate loop below
         rocketPivot.add(rocketMesh);
 
         camera.position.set(cx * 2.5, cy * 2.5, cz * 2.5);
         controls.target.set(0, 0, 0);
 
-        // Store references for the animation loop
         sceneRef.current = { rocketPivot, rocketMesh, autoOrbitAngle: 0.25 };
 
         let frameId;
         const animate = () => {
           frameId = requestAnimationFrame(animate);
           controls.update();
-          earthGroup.rotation.y += 0.0005; // Gentle cinematic spin
+          earthGroup.rotation.y += 0.0005;
           
           if (sceneRef.current.rocketPivot) {
              const t = Math.max(0, Math.min(1, progressRef.current / 100));
              const { rocketPivot, rocketMesh } = sceneRef.current;
              
              if (t < 1) {
-               // ASCENT PHASE: Synced with 2D/3D Launch sliders
-               const insertionAngle = 0.25; // Visual distance downrange to hit orbit
+               const insertionAngle = 0.25;
                rocketPivot.rotation.x = t * insertionAngle;
                
-               // Ascent altitude math (matches Catmull-Rom visual curve)
-               const alt = 100 + Math.sin(t * Math.PI / 2) * 12;
+               // Scaled down ascent altitude math
+               const alt = 50 + Math.sin(t * Math.PI / 2) * 6;
                rocketMesh.position.set(0, 0, alt);
                
-               // Pitch rocket gracefully from vertical (+Z) to horizontal (-Y)
                rocketMesh.rotation.x = (Math.PI / 2) + (t * (Math.PI / 2));
-               
-               // Sync auto-orbit so it takes over seamlessly at 100%
                sceneRef.current.autoOrbitAngle = insertionAngle;
              } else {
-               // AUTO-ORBIT PHASE: Detaches from slider and flies perpetually
                sceneRef.current.autoOrbitAngle += 0.0025;
                rocketPivot.rotation.x = sceneRef.current.autoOrbitAngle;
                rocketMesh.position.set(0, 0, orbitRadius);
@@ -909,7 +898,6 @@
 
       const isSuborbital = activeRocket.missionType === 'Suborbital';
 
-      // Fallback: If user switches to a suborbital rocket while on the global tab, kick them back to 2D
       useEffect(() => {
         if (isSuborbital && flightView === 'global') {
           setFlightView('2d');
@@ -1191,7 +1179,7 @@
                         >
                           {isSuborbital ? 'APOGEE (100km)' : 'MECO (150km)'}
                         </span>
-                        <span className={`absolute right-0 top-0 ${flightProgress === 100 ? "text-fuchsia-400 font-bold" : ""}`}>
+                        <span className={`absolute right-0 top-0 ${flightProgress >= 100 ? "text-fuchsia-400 font-bold" : ""}`}>
                           {isSuborbital ? 'SPLASHDOWN' : 'ORBIT (500km)'}
                         </span>
                       </div>
