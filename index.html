@@ -375,7 +375,6 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- 2D TELEMETRY ARC VIEWER (WITH MOBILE SCROLL) ---
     function TelemetryArcViewer2D({ rocket, progress, currentAlt, trajData }) {
       const isSuborbital = rocket.missionType === 'Suborbital';
       const maxX = isSuborbital ? 100 : 2000;
@@ -478,7 +477,6 @@
       );
     }
 
-    // --- 3D LAUNCH VIEWER ---
     function TelemetryArcViewer3D({ rocket, progress, trajData }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
@@ -688,7 +686,7 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- GLOBAL ORBIT 3D VIEWER (TRUE UNBOUND ROTATION DEBUGGED) ---
+    // --- GLOBAL ORBIT 3D VIEWER (MINI-SCALE, CONTINENT OVERLAY, TRACE PATH) ---
     function TelemetryOrbitViewer3D({ rocket, progress }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
@@ -707,26 +705,25 @@
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x091321);
 
-        const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 10000);
+        const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(w, h);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         
-        // Critical: Prevent native scrolling when dragging the canvas
         renderer.domElement.style.touchAction = 'none';
         currentContainer.appendChild(renderer.domElement);
 
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan = false;
-        controls.enableRotate = false; // Disable default rotation to bypass pole locking
-        controls.minDistance = 30;
-        controls.maxDistance = 100;
+        controls.enableRotate = false; // Bypassed for custom unbounded tumbling
+        controls.minDistance = 15; // Halved bounds
+        controls.maxDistance = 50;
 
         const earthGroup = new THREE.Group();
         scene.add(earthGroup);
 
-        const earthRadius = 25;
+        const earthRadius = 12.5; // Halved model radius
         const coreGeo = new THREE.SphereGeometry(earthRadius, 32, 32);
         const coreMat = new THREE.MeshBasicMaterial({ color: 0x07101c });
         earthGroup.add(new THREE.Mesh(coreGeo, coreMat));
@@ -735,7 +732,23 @@
         const wireGeo = new THREE.EdgesGeometry(new THREE.SphereGeometry(earthRadius, 16, 16));
         earthGroup.add(new THREE.LineSegments(wireGeo, wireMat));
 
-        const eqGeo = new THREE.RingGeometry(earthRadius + 0.25, earthRadius + 0.5, 64);
+        // Additive-blended map texture for glowing continental outlines (No bloat CDN load)
+        const texLoader = new THREE.TextureLoader();
+        texLoader.crossOrigin = 'anonymous';
+        texLoader.load('https://unpkg.com/three-globe/example/img/earth-topology.png', (texture) => {
+          const mapMat = new THREE.MeshBasicMaterial({ 
+            map: texture, 
+            transparent: true, 
+            opacity: 0.5,
+            blending: THREE.AdditiveBlending,
+            color: 0x38bdf8 // Cyan outlines
+          });
+          const mapMesh = new THREE.Mesh(new THREE.SphereGeometry(earthRadius + 0.02, 32, 32), mapMat);
+          mapMesh.rotation.y = -Math.PI / 2; // Aligns prime meridian cleanly
+          earthGroup.add(mapMesh);
+        });
+
+        const eqGeo = new THREE.RingGeometry(earthRadius + 0.125, earthRadius + 0.25, 64);
         const eqMat = new THREE.MeshBasicMaterial({ color: 0x334155, side: THREE.DoubleSide });
         const equator = new THREE.Mesh(eqGeo, eqMat);
         equator.rotation.x = Math.PI / 2;
@@ -748,7 +761,7 @@
         const cz = earthRadius * Math.cos(latRad) * Math.cos(lonRad);
         const padPos = new THREE.Vector3(cx, cy, cz);
         
-        const padMesh = new THREE.Mesh(new THREE.SphereGeometry(0.375, 8, 8), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+        const padMesh = new THREE.Mesh(new THREE.SphereGeometry(0.1875, 8, 8), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
         padMesh.position.copy(padPos);
         earthGroup.add(padMesh);
 
@@ -756,7 +769,7 @@
         if (rocket.orbit.includes('98')) inc = 98.1;
         if (rocket.orbit.includes('87')) inc = 87.9;
         
-        const orbitRadius = earthRadius + 3; 
+        const orbitRadius = earthRadius + 1.5; 
         
         const orbitGroup = new THREE.Group();
         orbitGroup.lookAt(padPos);
@@ -766,26 +779,28 @@
 
         const insertionAngle = 0.25;
 
+        // Dashed Trace line behind the ascending rocket
         const ascentPoints = [];
         for (let i = 0; i <= 64; i++) {
           const t_val = i / 64;
-          const alt = earthRadius + Math.sin(t_val * Math.PI / 2) * 3;
+          const alt = earthRadius + Math.sin(t_val * Math.PI / 2) * 1.5;
           const a = t_val * insertionAngle;
           ascentPoints.push(new THREE.Vector3(0, -alt * Math.sin(a), alt * Math.cos(a)));
         }
         const ascentGeo = new THREE.BufferGeometry().setFromPoints(ascentPoints);
-        const ascentMat = new THREE.LineDashedMaterial({ color: 0x22d3ee, dashSize: 0.2, gapSize: 0.2, transparent: true, opacity: 0.7 });
+        const ascentMat = new THREE.LineDashedMaterial({ color: 0x22d3ee, dashSize: 0.1, gapSize: 0.1, transparent: true, opacity: 0.7 });
         const ascentLine = new THREE.Line(ascentGeo, ascentMat);
         ascentLine.computeLineDistances();
         orbitGroup.add(ascentLine);
 
+        // Dashed Orbit Ring
         const pathPoints = [];
         for (let i = 0; i <= 128; i++) {
           const a = (i / 128) * Math.PI * 2;
           pathPoints.push(new THREE.Vector3(0, -orbitRadius * Math.sin(a), orbitRadius * Math.cos(a)));
         }
         const lineGeo = new THREE.BufferGeometry().setFromPoints(pathPoints);
-        const lineMat = new THREE.LineDashedMaterial({ color: 0xc026d3, transparent: true, opacity: 0.4, dashSize: 0.5, gapSize: 0.5 });
+        const lineMat = new THREE.LineDashedMaterial({ color: 0xc026d3, transparent: true, opacity: 0.4, dashSize: 0.2, gapSize: 0.2 });
         const orbitLine = new THREE.Line(lineGeo, lineMat);
         orbitLine.computeLineDistances();
         orbitGroup.add(orbitLine);
@@ -793,21 +808,20 @@
         const rocketPivot = new THREE.Group();
         orbitGroup.add(rocketPivot);
 
-        const rocketGeo = new THREE.ConeGeometry(0.375, 1, 8);
+        const rocketGeo = new THREE.ConeGeometry(0.1875, 0.5, 8);
         const rocketMesh = new THREE.Mesh(rocketGeo, new THREE.MeshBasicMaterial({ color: 0x22d3ee }));
         rocketPivot.add(rocketMesh);
 
-        // Initial Camera Setup: Closer, higher angle (bird's eye), viewed from the West
-        camera.position.set(-50, 45, 35); 
+        // Scaled and repositioned camera (West profile, high angle)
+        camera.position.set(-25, 22.5, 17.5); 
         controls.target.set(0, 0, 0);
 
-        // Custom Pointer Rotation Logic (Single-touch lock and speed limit)
         let isDragging = false;
         let prevX = 0, prevY = 0;
         let activePointerId = null;
 
         const onPointerDown = (e) => {
-          if (isDragging) return; // Prevent multi-touch chaotic jumping
+          if (isDragging) return; 
           isDragging = true;
           activePointerId = e.pointerId;
           prevX = e.clientX;
@@ -827,7 +841,6 @@
           let deltaX = e.clientX - prevX;
           let deltaY = e.clientY - prevY;
           
-          // Cap the rotation speed to prevent mobile swipe disorientation
           const maxDelta = 35; 
           deltaX = Math.max(-maxDelta, Math.min(maxDelta, deltaX));
           deltaY = Math.max(-maxDelta, Math.min(maxDelta, deltaY));
@@ -857,7 +870,6 @@
           frameId = requestAnimationFrame(animate);
           controls.update();
           
-          // Apply native auto-spin around the Earth's local North-South axis
           const autoSpin = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.0005);
           earthGroup.quaternion.multiply(autoSpin);
           
@@ -868,7 +880,7 @@
              if (t < 1) {
                rocketPivot.rotation.x = t * insertionAngle;
                
-               const alt = earthRadius + Math.sin(t * Math.PI / 2) * 3;
+               const alt = earthRadius + Math.sin(t * Math.PI / 2) * 1.5;
                rocketMesh.position.set(0, 0, alt);
                
                rocketMesh.rotation.x = (Math.PI / 2) + (t * (Math.PI / 2));
