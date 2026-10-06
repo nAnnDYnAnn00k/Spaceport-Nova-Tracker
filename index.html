@@ -687,15 +687,13 @@
     }
 
     // --- GLOBAL ORBIT 3D VIEWER (DYNAMIC DELTA-TRACKING + REDUCED MAX ZOOM) ---
-    function TelemetryOrbitViewer3D({ rocket, progress, isFlightPlaying, orbitAngle }) {
+    function TelemetryOrbitViewer3D({ rocket, progress, isFlightPlaying }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
       const progressRef = useRef(progress);
-      const orbitAngleRef = useRef(orbitAngle);
 
       useEffect(() => { progressRef.current = progress; }, [progress]);
       useEffect(() => { sceneRef.current.isFlightPlaying = isFlightPlaying; }, [isFlightPlaying]);
-      useEffect(() => { orbitAngleRef.current = orbitAngle; }, [orbitAngle]);
 
       useEffect(() => {
         const container = mountRef.current;
@@ -832,14 +830,19 @@
           rocketPivot, 
           rocketMesh, 
           insertionAngle, 
+          autoOrbitAngle: insertionAngle, 
           earthRadius,
           padPos,
-          lastT: Math.max(0, Math.min(1, progressRef.current / 100)),
+          lastT: 0,
           isTransitioning: false,
+          lastRocketMatrixWorld: null,
           isFlightPlaying: isFlightPlaying
         };
 
-        const breakTransition = () => { if (sceneRef.current) sceneRef.current.isTransitioning = false; };
+        // Break transition smoothly if the user interacts during a swoop
+        const breakTransition = () => {
+            if (sceneRef.current) sceneRef.current.isTransitioning = false;
+        };
         renderer.domElement.addEventListener('pointerdown', breakTransition);
         renderer.domElement.addEventListener('wheel', breakTransition, { passive: true });
         renderer.domElement.addEventListener('touchstart', breakTransition, { passive: true });
@@ -847,7 +850,8 @@
         let frameId;
         const animate = () => {
           frameId = requestAnimationFrame(animate);
-          earthGroup.rotation.y += 0.0005; // Universal idle spin
+          
+          earthGroup.rotation.y += 0.0005; // Idle spinning
           
           if (sceneRef.current.rocketPivot) {
              const t = Math.max(0, Math.min(1, progressRef.current / 100));
@@ -859,12 +863,17 @@
                const alt = earthRadius + Math.sin(t * Math.PI / 2) * 3;
                rocketMesh.position.set(0, 0, alt);
                rocketMesh.rotation.x = (Math.PI / 2) + (t * (Math.PI / 2));
+               sceneRef.current.autoOrbitAngle = insertionAngle;
              } else {
-               rocketPivot.rotation.x = insertionAngle + orbitAngleRef.current;
+               if (sceneRef.current.isFlightPlaying) {
+                   sceneRef.current.autoOrbitAngle += 0.0025; // Universal Pause Support
+               }
+               rocketPivot.rotation.x = sceneRef.current.autoOrbitAngle;
                rocketMesh.position.set(0, 0, orbitRadius);
                rocketMesh.rotation.x = Math.PI; 
              }
 
+             // Force matrix calculations to ensure camera tracking is perfectly smooth
              rocketPivot.updateMatrixWorld(true);
              rocketMesh.updateMatrixWorld(true);
              const currentRocketPos = new THREE.Vector3();
@@ -880,61 +889,60 @@
              if (t === 0 && sceneRef.current.lastT > 0) sceneRef.current.isTransitioning = true;
 
              if (t < 1) {
-                 // ASCENT / IDLE: Earth Controls Active. Free-look and drag anywhere.
-                 controls.enabled = true;
-                 dummyControls.enabled = false;
-                 
+                 // ASCENT & IDLE: Look at the Earth, standard dragging active
                  camera.up.lerp(new THREE.Vector3(0, 1, 0), 0.1);
                  controls.maxPolarAngle = Math.PI / 2 - 0.05;
 
                  if (sceneRef.current.isTransitioning) {
-                     // Smoothly return to standard view relative to spun Earth
+                     controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
+                     
+                     // Transform default camera angle dynamically relative to spinning Earth pad
                      const relativeOffset = new THREE.Vector3(-50, 45, 35).sub(padPos);
                      relativeOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), earthGroup.rotation.y);
+                     const targetCamPos = padPos.clone().add(relativeOffset);
                      
-                     camera.position.lerp(padPos.clone().add(relativeOffset), 0.05);
-                     controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
-                     camera.lookAt(controls.target);
+                     camera.position.lerp(targetCamPos, 0.05);
                      
-                     if (controls.target.distanceTo(new THREE.Vector3(0, 0, 0)) < 0.5) sceneRef.current.isTransitioning = false;
-                 } else {
-                     controls.update(); 
+                     if (controls.target.distanceTo(new THREE.Vector3(0, 0, 0)) < 0.5) {
+                         sceneRef.current.isTransitioning = false;
+                     }
                  }
              } else {
-                 // ORBITAL: Proxy Camera Active. Real Earth controls frozen.
-                 controls.enabled = false;
-                 dummyControls.enabled = true;
-                 dummyControls.update(); // Process user dragging the proxy camera
+                 // ORBITAL: Track the rocket perfectly
                  
-                 // Map Proxy to Rocket Airspace (Proxy Y = Rocket Z, Proxy Z = Rocket -Y)
-                 const dummyPos = dummyCamera.position;
-                 const localOffset = new THREE.Vector3(dummyPos.x, -dummyPos.z, dummyPos.y);
-                 const targetCamWorld = rocketPivot.localToWorld(localOffset);
+                 // Anti-Clip & True Alignment: Bind the camera ceiling directly to the rocket's vertical axis
+                 const rocketUp = currentRocketPos.clone().normalize();
+                 camera.up.lerp(rocketUp, 0.1); 
+                 controls.maxPolarAngle = Math.PI / 2.1; 
                  
-                 // Bind camera ceiling to Rocket Vertical Axis
-                 const upVector = rocketPivot.localToWorld(new THREE.Vector3(0,0,1)).sub(rocketPivot.getWorldPosition(new THREE.Vector3())).normalize();
-
                  if (sceneRef.current.isTransitioning) {
-                     camera.position.lerp(targetCamWorld, 0.05);
-                     camera.up.lerp(upVector, 0.05);
+                     // Default Top-Down swoop
+                     const idealCamLocal = new THREE.Vector3(0, -3, earthRadius + 18); 
+                     const idealCamWorld = rocketPivot.localToWorld(idealCamLocal);
                      
-                     const lookTarget = controls.target.clone().lerp(currentRocketPos, 0.05);
-                     controls.target.copy(lookTarget);
-                     camera.lookAt(lookTarget);
+                     camera.position.lerp(idealCamWorld, 0.04);
+                     controls.target.lerp(currentRocketPos, 0.04);
                      
-                     if (camera.position.distanceTo(targetCamWorld) < 1.0) sceneRef.current.isTransitioning = false;
+                     if (controls.target.distanceTo(currentRocketPos) < 0.5 && camera.position.distanceTo(idealCamWorld) < 1.0) {
+                         sceneRef.current.isTransitioning = false;
+                     }
                  } else {
-                     // 100% Pacing without Gimbal Lock
-                     camera.position.copy(targetCamWorld);
-                     camera.up.copy(upVector);
+                     // TRUE MATRIX PACING: Preserves native distance and rotation while moving perfectly with rocket
+                     const invLast = new THREE.Matrix4().copy(sceneRef.current.lastRocketMatrixWorld).invert();
+                     camera.position.applyMatrix4(invLast);
+                     camera.position.applyMatrix4(rocketPivot.matrixWorld);
                      controls.target.copy(currentRocketPos);
-                     camera.lookAt(currentRocketPos);
                  }
              }
+
+             // Save exact spatial layout for delta-tracking on the next frame
+             sceneRef.current.lastRocketMatrixWorld = rocketPivot.matrixWorld.clone();
              sceneRef.current.lastT = t;
           }
           
-          // Anti-Clip Glass Floor Safety
+          controls.update(); 
+
+          // Mathematical glass floor over the Earth's crust
           const minCamRadius = 25.5; 
           if (camera.position.length() < minCamRadius) {
               camera.position.copy(camera.position.clone().normalize().multiplyScalar(minCamRadius));
@@ -1020,7 +1028,6 @@
       const [buildYear, setBuildYear] = useState(2035);
       
       const [flightProgress, setFlightProgress] = useState(0);
-      const [orbitAngle, setOrbitAngle] = useState(0);
       const [isFlightPlaying, setIsFlightPlaying] = useState(false);
       const [flightView, setFlightView] = useState('2d'); 
 
@@ -1036,8 +1043,10 @@
       useEffect(() => {
         if (isSuborbital && flightView === 'global') {
           setFlightView('2d');
+        } else if (!isSuborbital && flightProgress >= 100 && flightView !== 'global') {
+          setFlightView('global');
         }
-      }, [isSuborbital, flightView]);
+      }, [isSuborbital, flightView, flightProgress]);
 
       const trajData = useMemo(() => getTrajectoryData(isSuborbital), [isSuborbital]);
       
@@ -1058,16 +1067,10 @@
               if (prev >= 100 && isSuborbital) {
                 setIsFlightPlaying(false);
                 return 100;
-              } else if (prev >= 100 && !isSuborbital) {
-                setOrbitAngle(a => a + 0.0025);
+              } else if (prev >= 100) {
                 return 100; 
               }
-              
-              const next = prev + 0.5;
-              if (next >= 100 && !isSuborbital) {
-                setFlightView('global');
-              }
-              return next;
+              return prev + 0.5;
             });
           }, 50); 
         }
@@ -1256,7 +1259,6 @@
                     onChange={(e) => {
                       setSelectedRocketId(e.target.value);
                       setFlightProgress(0);
-                      setOrbitAngle(0);
                       setIsFlightPlaying(false);
                     }} 
                     className="w-full bg-slate-900 border border-[#233247] rounded-xl p-3 text-sm text-white font-medium focus:ring-2 focus:ring-fuchsia-500 focus:outline-none mb-5"
@@ -1270,7 +1272,7 @@
                     
                     {flightView === '2d' && <TelemetryArcViewer2D rocket={activeRocket} progress={flightProgress} currentAlt={currentAlt} trajData={trajData} />}
                     {flightView === '3d-launch' && <TelemetryArcViewer3D rocket={activeRocket} progress={flightProgress} trajData={trajData} />}
-                    {flightView === 'global' && !isSuborbital && <TelemetryOrbitViewer3D rocket={activeRocket} progress={flightProgress} isFlightPlaying={isFlightPlaying} orbitAngle={orbitAngle} />}
+                    {flightView === 'global' && !isSuborbital && <TelemetryOrbitViewer3D rocket={activeRocket} progress={flightProgress} isFlightPlaying={isFlightPlaying} />}
 
                     {/* DYNAMIC ORBIT HANDOFF HUD */}
                     <div className="absolute top-3 left-3 right-3 flex flex-wrap gap-2 pointer-events-none z-20">
@@ -1325,7 +1327,6 @@
                             onClick={() => {
                               setIsFlightPlaying(false);
                               setFlightProgress(0);
-                              setOrbitAngle(0);
                             }}
                             className="p-2.5 text-slate-400 transition border-l border-slate-700 hover:bg-slate-700 hover:text-white"
                             title="Reset to Pad"
@@ -1345,9 +1346,7 @@
                         value={flightProgress}
                         onChange={(e) => {
                           setIsFlightPlaying(false);
-                          const val = parseFloat(e.target.value);
-                          setFlightProgress(val);
-                          if (val < 100) setOrbitAngle(0);
+                          setFlightProgress(parseFloat(e.target.value));
                         }}
                         className="w-full accent-fuchsia-500 h-2 bg-slate-800 rounded-lg cursor-pointer relative z-10"
                       />
@@ -1458,7 +1457,7 @@
                       <button onClick={() => { setSelectedRocketId(r.id); setActiveTab('safety'); }} className="flex-1 py-2.5 bg-slate-800 hover:bg-cyan-500 hover:text-slate-950 border border-slate-700 text-cyan-400 text-xs font-bold rounded-xl transition shadow-lg flex justify-center items-center gap-2">
                         <IconRadar /> Safety Matrix
                       </button>
-                      <button onClick={() => { setSelectedRocketId(r.id); setFlightProgress(0); setOrbitAngle(0); setIsFlightPlaying(false); setActiveTab('telemetry'); }} className="flex-1 py-2.5 bg-slate-800 hover:bg-fuchsia-500 hover:text-white border border-slate-700 text-fuchsia-400 text-xs font-bold rounded-xl transition shadow-lg flex justify-center items-center gap-2">
+                      <button onClick={() => { setSelectedRocketId(r.id); setFlightProgress(0); setIsFlightPlaying(false); setActiveTab('telemetry'); }} className="flex-1 py-2.5 bg-slate-800 hover:bg-fuchsia-500 hover:text-white border border-slate-700 text-fuchsia-400 text-xs font-bold rounded-xl transition shadow-lg flex justify-center items-center gap-2">
                         <IconActivity /> Track Arc
                       </button>
                     </div>
@@ -1563,4 +1562,3 @@
   </script>
 </body>
 </html>
-```eof
