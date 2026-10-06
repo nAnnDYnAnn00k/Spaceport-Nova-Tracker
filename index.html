@@ -686,7 +686,7 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- GLOBAL ORBIT 3D VIEWER (PROXY DRONE CAMERA + 45 DEGREE CONE) ---
+    // --- GLOBAL ORBIT 3D VIEWER (DYNAMIC DELTA-TRACKING + REDUCED MAX ZOOM) ---
     function TelemetryOrbitViewer3D({ rocket, progress, isFlightPlaying }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
@@ -718,8 +718,10 @@
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan = false;
-        controls.minDistance = 25.5; 
-        controls.maxDistance = 1000; 
+        controls.enableRotate = true; 
+        controls.enableZoom = true;
+        controls.minDistance = 2; 
+        controls.maxDistance = 250; // REDUCED BY 75% FROM 1000
 
         // 3. PROXY ORBIT CONTROLS (Used to track user dragging without fighting orbital physics)
         const dummyCamera = new THREE.PerspectiveCamera(45, w / h, 0.1, 10000);
@@ -728,8 +730,8 @@
         dummyControls.enableDamping = true;
         dummyControls.enablePan = false;
         dummyControls.minDistance = 2; 
-        dummyControls.maxDistance = 1000;
-        dummyControls.maxPolarAngle = Math.PI / 4; // Absolute 45-degree top-down limit
+        dummyControls.maxDistance = 250; // REDUCED BY 75% FROM 1000
+        dummyControls.maxPolarAngle = Math.PI / 4; // Absolute 45-degree top-down limit for the proxy
 
         const earthGroup = new THREE.Group();
         scene.add(earthGroup);
@@ -825,8 +827,15 @@
         controls.target.set(0, 0, 0);
 
         sceneRef.current = { 
-          rocketPivot, rocketMesh, insertionAngle, autoOrbitAngle: insertionAngle, earthRadius, padPos,
-          lastT: 0, isTransitioning: false, isFlightPlaying: isFlightPlaying
+          rocketPivot, 
+          rocketMesh, 
+          insertionAngle, 
+          autoOrbitAngle: insertionAngle, 
+          earthRadius,
+          padPos,
+          lastT: 0,
+          isTransitioning: false,
+          isFlightPlaying: isFlightPlaying
         };
 
         const breakTransition = () => { if (sceneRef.current) sceneRef.current.isTransitioning = false; };
