@@ -124,6 +124,7 @@
       };
     };
 
+    // --- HIGH-RES 3D MASTER PLAN VIEWER ---
     function EnhancedThreeViewer({ year }) {
       const mountRef = useRef(null);
       const phasesRef = useRef({});
@@ -685,7 +686,7 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- GLOBAL ORBIT 3D VIEWER (DYNAMIC DELTA-TRACKING + PROCEDURAL ASTRONOMY STARFIELD) ---
+    // --- GLOBAL ORBIT 3D VIEWER (DYNAMIC DELTA-TRACKING + REDUCED MAX ZOOM) ---
     function TelemetryOrbitViewer3D({ rocket, progress, isFlightPlaying }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
@@ -703,7 +704,7 @@
         const h = currentContainer.clientHeight || 500;
 
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x050913); // Deep space dark tint
+        scene.background = new THREE.Color(0x091321);
 
         // 1. REAL CAMERA (Used for rendering)
         const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 10000);
@@ -720,117 +721,18 @@
         controls.enableRotate = true; 
         controls.enableZoom = true;
         controls.minDistance = 2; 
-        controls.maxDistance = 250; 
+        controls.maxDistance = 250; // REDUCED BY 75% FROM 1000[cite: 1]
 
         // 3. PROXY ORBIT CONTROLS (Used to track user dragging without fighting orbital physics)
         const dummyCamera = new THREE.PerspectiveCamera(45, w / h, 0.1, 10000);
-        dummyCamera.position.set(0, 40, 0); 
+        dummyCamera.position.set(0, 40, 0); // Start proxy at the "North Pole"
         const dummyControls = new THREE.OrbitControls(dummyCamera, renderer.domElement);
         dummyControls.enableDamping = true;
         dummyControls.enablePan = false;
         dummyControls.minDistance = 2; 
-        dummyControls.maxDistance = 250; 
-        dummyControls.maxPolarAngle = Math.PI / 4; 
+        dummyControls.maxDistance = 250; // REDUCED BY 75% FROM 1000[cite: 1]
+        dummyControls.maxPolarAngle = Math.PI / 4; // Absolute 45-degree top-down limit for the proxy
 
-        // --- PROCEDURAL ZERO-BLOAT STARFIELD & CONSTELLATIONS ---
-        const starSphereRadius = 2500;
-
-        // Function: Convert Astronomical (RA in hours, Dec in degrees) to Cartesian 3D coordinates
-        const astroToCartesian = (raH, decDeg, r = starSphereRadius) => {
-          const raRad = (raH * 15) * (Math.PI / 180);
-          const decRad = decDeg * (Math.PI / 180);
-          return new THREE.Vector3(
-            r * Math.cos(decRad) * Math.cos(raRad),
-            r * Math.sin(decRad),
-            r * Math.cos(decRad) * Math.sin(raRad)
-          );
-        };
-
-        // A. Background Starfield (2,000 faint stars distributed evenly over sphere)
-        const bgCount = 2000;
-        const bgPos = new Float32Array(bgCount * 3);
-        for (let i = 0; i < bgCount; i++) {
-          const u = Math.random();
-          const v = Math.random();
-          const theta = u * 2.0 * Math.PI;
-          const phi = Math.acos(2.0 * v - 1.0);
-          const sinPhi = Math.sin(phi);
-          bgPos[i * 3] = starSphereRadius * sinPhi * Math.cos(theta);
-          bgPos[i * 3 + 1] = starSphereRadius * Math.cos(phi);
-          bgPos[i * 3 + 2] = starSphereRadius * sinPhi * Math.sin(theta);
-        }
-        const bgGeo = new THREE.BufferGeometry();
-        bgGeo.setAttribute('position', new THREE.BufferAttribute(bgPos, 3));
-        const bgMat = new THREE.PointsBasicMaterial({ color: 0x94a3b8, size: 1.2, sizeAttenuation: false, transparent: true, opacity: 0.65 });
-        scene.add(new THREE.Points(bgGeo, bgMat));
-
-        // B. Recognized Asterisms & Constellation Lines
-        // 1. Ursa Major / Big Dipper
-        const dubhe = astroToCartesian(11.06, 61.75);
-        const merak = astroToCartesian(11.03, 56.38);
-        const phecda = astroToCartesian(11.90, 53.69);
-        const megrez = astroToCartesian(12.25, 57.03);
-        const alioth = astroToCartesian(12.90, 55.96);
-        const mizar = astroToCartesian(13.40, 54.92);
-        const alkaid = astroToCartesian(13.79, 49.31);
-
-        // 2. Orion
-        const betelgeuse = astroToCartesian(5.92, 7.41);
-        const rigel = astroToCartesian(5.24, -8.20);
-        const bellatrix = astroToCartesian(5.42, 6.35);
-        const saiph = astroToCartesian(5.79, -9.67);
-        const alnitak = astroToCartesian(5.68, -1.94);
-        const alnilam = astroToCartesian(5.60, -1.20);
-        const mintaka = astroToCartesian(5.53, -0.30);
-
-        // 3. Cassiopeia
-        const caph = astroToCartesian(0.15, 59.15);
-        const schedar = astroToCartesian(0.67, 56.54);
-        const gammaCas = astroToCartesian(0.94, 60.72);
-        const ruchbah = astroToCartesian(1.43, 60.23);
-        const segin = astroToCartesian(1.90, 63.67);
-
-        // Assemble Constellation Segments
-        const linePoints = [
-          // Ursa Major Bowl & Handle
-          dubhe, merak,  merak, phecda,  phecda, megrez,  megrez, dubhe,
-          megrez, alioth,  alioth, mizar,  mizar, alkaid,
-          // Orion Outline & Belt
-          betelgeuse, bellatrix,  bellatrix, mintaka,  betelgeuse, alnitak,
-          mintaka, alnilam,  alnilam, alnitak,
-          mintaka, rigel,  alnitak, saiph,  saiph, rigel,
-          // Cassiopeia "W"
-          caph, schedar,  schedar, gammaCas,  gammaCas, ruchbah,  ruchbah, segin
-        ];
-        const linesGeo = new THREE.BufferGeometry().setFromPoints(linePoints);
-        const linesMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.28 });
-        scene.add(new THREE.LineSegments(linesGeo, linesMat));
-
-        // Prominent Constellation Stars
-        const cStarsList = [
-          dubhe, merak, phecda, megrez, alioth, mizar, alkaid,
-          betelgeuse, rigel, bellatrix, saiph, alnitak, alnilam, mintaka,
-          caph, schedar, gammaCas, ruchbah, segin
-        ];
-        const cStarsGeo = new THREE.BufferGeometry().setFromPoints(cStarsList);
-        const cStarsMat = new THREE.PointsBasicMaterial({ color: 0xf1f5f9, size: 3.2, sizeAttenuation: false });
-        scene.add(new THREE.Points(cStarsGeo, cStarsMat));
-
-        // C. Visible Planets (Venus, Mars, Jupiter, Saturn)
-        const planetsData = [
-          { name: "Venus", pos: astroToCartesian(3.2, 17.5), color: 0xfffbeb, size: 5.5 },   // Brilliant White
-          { name: "Mars", pos: astroToCartesian(8.1, 21.8), color: 0xf87171, size: 4.8 },    // Rust-Red
-          { name: "Jupiter", pos: astroToCartesian(4.6, 20.4), color: 0xfde047, size: 5.2 }, // Golden-Amber
-          { name: "Saturn", pos: astroToCartesian(23.4, -6.8), color: 0xfed7aa, size: 4.4 }  // Pale Cream
-        ];
-
-        planetsData.forEach(p => {
-          const pGeo = new THREE.BufferGeometry().setFromPoints([p.pos]);
-          const pMat = new THREE.PointsBasicMaterial({ color: p.color, size: p.size, sizeAttenuation: false });
-          scene.add(new THREE.Points(pGeo, pMat));
-        });
-
-        // --- EARTH & ORBIT RIG ---
         const earthGroup = new THREE.Group();
         scene.add(earthGroup);
 
@@ -920,12 +822,20 @@
         shadowMesh.position.set(0, 0, earthRadius + 0.05); 
         rocketPivot.add(shadowMesh);
 
+        // Standard wide cinematic default
         camera.position.set(-50, 45, 35);
         controls.target.set(0, 0, 0);
 
         sceneRef.current = { 
-          rocketPivot, rocketMesh, insertionAngle, autoOrbitAngle: insertionAngle, earthRadius, padPos,
-          lastT: 0, isTransitioning: false, isFlightPlaying: isFlightPlaying
+          rocketPivot, 
+          rocketMesh, 
+          insertionAngle, 
+          autoOrbitAngle: insertionAngle, 
+          earthRadius,
+          padPos,
+          lastT: 0,
+          isTransitioning: false,
+          isFlightPlaying: isFlightPlaying
         };
 
         const breakTransition = () => { if (sceneRef.current) sceneRef.current.isTransitioning = false; };
@@ -942,6 +852,7 @@
              const t = Math.max(0, Math.min(1, progressRef.current / 100));
              const { rocketPivot, rocketMesh, insertionAngle, earthRadius, padPos } = sceneRef.current;
              
+             // Physics Engine
              if (t < 1) {
                rocketPivot.rotation.x = t * insertionAngle;
                const alt = earthRadius + Math.sin(t * Math.PI / 2) * 3;
@@ -950,7 +861,7 @@
                sceneRef.current.autoOrbitAngle = insertionAngle;
              } else {
                if (sceneRef.current.isFlightPlaying) {
-                   sceneRef.current.autoOrbitAngle += 0.0025; 
+                   sceneRef.current.autoOrbitAngle += 0.0025; // Universal Pause Support
                }
                rocketPivot.rotation.x = sceneRef.current.autoOrbitAngle;
                rocketMesh.position.set(0, 0, orbitRadius);
@@ -962,12 +873,17 @@
              const currentRocketPos = new THREE.Vector3();
              rocketMesh.getWorldPosition(currentRocketPos);
 
+             if (!sceneRef.current.lastRocketMatrixWorld) {
+                 sceneRef.current.lastRocketMatrixWorld = rocketPivot.matrixWorld.clone();
+             }
+
+             // Detect Handoffs
              if (sceneRef.current.lastT < 1 && t >= 1) sceneRef.current.isTransitioning = true;
              if (sceneRef.current.lastT >= 1 && t < 1) sceneRef.current.isTransitioning = true;
              if (t === 0 && sceneRef.current.lastT > 0) sceneRef.current.isTransitioning = true;
 
              if (t < 1) {
-                 // ASCENT / IDLE: Earth Controls Active.
+                 // ASCENT / IDLE: Earth Controls Active. Free-look and drag anywhere.
                  controls.enabled = true;
                  dummyControls.enabled = false;
                  
@@ -975,6 +891,7 @@
                  controls.maxPolarAngle = Math.PI / 2 - 0.05;
 
                  if (sceneRef.current.isTransitioning) {
+                     // Smoothly return to standard view relative to spun Earth
                      const relativeOffset = new THREE.Vector3(-50, 45, 35).sub(padPos);
                      relativeOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), earthGroup.rotation.y);
                      
@@ -987,15 +904,17 @@
                      controls.update(); 
                  }
              } else {
-                 // ORBITAL: Proxy Camera Active.
+                 // ORBITAL: Proxy Camera Active. Real Earth controls frozen.
                  controls.enabled = false;
                  dummyControls.enabled = true;
-                 dummyControls.update(); 
+                 dummyControls.update(); // Process user dragging the proxy camera
                  
+                 // Map Proxy to Rocket Airspace (Proxy Y = Rocket Z, Proxy Z = Rocket -Y)
                  const dummyPos = dummyCamera.position;
                  const localOffset = new THREE.Vector3(dummyPos.x, -dummyPos.z, dummyPos.y);
                  const targetCamWorld = rocketPivot.localToWorld(localOffset);
                  
+                 // Bind camera ceiling to Rocket Vertical Axis
                  const upVector = rocketPivot.localToWorld(new THREE.Vector3(0,0,1)).sub(rocketPivot.getWorldPosition(new THREE.Vector3())).normalize();
 
                  if (sceneRef.current.isTransitioning) {
@@ -1008,6 +927,7 @@
                      
                      if (camera.position.distanceTo(targetCamWorld) < 1.0) sceneRef.current.isTransitioning = false;
                  } else {
+                     // 100% Pacing without Gimbal Lock
                      camera.position.copy(targetCamWorld);
                      camera.up.copy(upVector);
                      controls.target.copy(currentRocketPos);
