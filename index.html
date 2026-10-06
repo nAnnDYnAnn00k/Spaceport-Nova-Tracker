@@ -256,6 +256,7 @@
         const p2030 = new THREE.Group();
         const p2032 = new THREE.Group();
 
+        // SCALED ASSET BUILDERS (Scaled by 75% relative to original footprint)
         const buildHIF = (width, depth) => {
           const group = new THREE.Group();
           const base = new THREE.Mesh(new THREE.BoxGeometry(width, 6, depth), matBuilding);
@@ -269,6 +270,7 @@
           apron.position.set(0, 0.1, 5);
           apron.receiveShadow = true;
           group.add(base, roof, apron);
+          group.scale.set(0.25, 0.25, 0.25);
           return group;
         };
 
@@ -322,6 +324,7 @@
             padGroup.add(mast);
           });
 
+          padGroup.scale.set(0.25, 0.25, 0.25);
           padGroup.position.set(x, getElevation(x, z), z);
           return padGroup;
         };
@@ -343,53 +346,57 @@
           engine.castShadow = true;
           rGroup.add(engine);
 
+          rGroup.scale.set(0.25, 0.25, 0.25);
           return rGroup;
         };
 
         // 2024 Phase
-        const subPad = buildPadComplex(-20, -10, 0.6, false, "small");
+        const subPad = buildPadComplex(-35, 10, 0.6, false, "small");
         p2024.add(subPad);
         const dishBase = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 2, 16), matConcrete);
-        dishBase.position.set(-25, getElevation(-25, -4) + 1, -4);
+        dishBase.scale.set(0.25, 0.25, 0.25);
+        dishBase.position.set(-40, getElevation(-40, 16) + 0.25, 16);
         const dish = new THREE.Mesh(new THREE.SphereGeometry(1.5, 16, 16, 0, Math.PI*2, 0, Math.PI/2.5), matRocketBody);
+        dish.scale.set(0.25, 0.25, 0.25);
         dish.rotation.x = Math.PI / 4;
-        dish.position.set(-25, getElevation(-25, -4) + 2.5, -4);
+        dish.position.set(-40, getElevation(-40, 16) + 0.625, 16);
         p2024.add(dishBase, dish);
 
         // 2026 Phase
         const gate = buildHIF(8, 6); 
-        gate.position.set(-35, getElevation(-35, 30), 30);
+        gate.position.set(-40, getElevation(-40, 45), 45);
         gate.rotation.y = Math.PI / 4;
         p2026.add(gate);
         const hub = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 15), matBuilding);
-        hub.position.set(-15, getElevation(-15, 20) + 2, 20);
+        hub.scale.set(0.25, 0.25, 0.25);
+        hub.position.set(-30, getElevation(-30, 40) + 0.5, 40);
         hub.castShadow = true; hub.receiveShadow = true;
         p2026.add(hub);
 
         // 2028 Phase
-        const pad1 = buildPadComplex(10, -5, 1);
+        const pad1 = buildPadComplex(-5, 15, 1);
         const rocket1 = buildRocket(1);
-        rocket1.position.set(10, getElevation(10, -5) + 1.0, -5);
+        rocket1.position.set(-5, getElevation(-5, 15) + 0.25, 15);
         p2028.add(pad1, rocket1);
         const hif1 = buildHIF(15, 12);
-        hif1.position.set(-5, getElevation(-5, 5), 5);
+        hif1.position.set(-20, getElevation(-20, 25), 25);
         p2028.add(hif1);
 
         // 2030 Phase (Pad 2 moved fully inland)
-        const pad2 = buildPadComplex(20, 15, 1.2); 
+        const pad2 = buildPadComplex(5, 35, 1.2); 
         const rocket2 = buildRocket(1.2);
-        rocket2.position.set(20, getElevation(20, 15) + 1.2, 15);
+        rocket2.position.set(5, getElevation(5, 35) + 0.25, 35);
         p2030.add(pad2, rocket2);
         const hifExt = buildHIF(12, 10);
-        hifExt.position.set(-21, getElevation(-21, 5), 5);
+        hifExt.position.set(-36, getElevation(-36, 25), 25);
         p2030.add(hifExt);
 
         // 2032 Phase (Pad 3 & 4 moved fully inland)
-        const pad3 = buildPadComplex(-5, -20, 1.5); 
+        const pad3 = buildPadComplex(-20, 0, 1.5); 
         const rocket3 = buildRocket(1.5, "heavy");
-        rocket3.position.set(-5, getElevation(-5, -20) + 1.5, -20);
+        rocket3.position.set(-20, getElevation(-20, 0) + 0.25, 0);
         p2032.add(pad3, rocket3);
-        const pad4 = buildPadComplex(15, -15, 1.1);
+        const pad4 = buildPadComplex(0, 5, 1.1);
         p2032.add(pad4);
 
         scene.add(p2024, p2026, p2028, p2030, p2032);
