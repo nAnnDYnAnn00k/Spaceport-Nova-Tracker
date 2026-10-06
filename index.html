@@ -686,8 +686,8 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- GLOBAL ORBIT 3D VIEWER (NATIVE DELTA-MATRIX DRONE CAM) ---
-    function TelemetryOrbitViewer3D({ rocket, progress, isFlightPlaying }) {
+    // --- GLOBAL ORBIT 3D VIEWER (DYNAMIC DELTA-TRACKING + UNBOUND ZOOM) ---
+    function TelemetryOrbitViewer3D({ rocket, progress }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
       const progressRef = useRef(progress);
@@ -713,13 +713,13 @@
         renderer.domElement.style.touchAction = 'none';
         currentContainer.appendChild(renderer.domElement);
 
-        // Native controls fully enabled for unbound pacing and zooming
+        // Native OrbitControls restored for flawless manual pacing and unlimited zoom
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan = false;
         controls.enableRotate = true; 
         controls.minDistance = 2; 
-        controls.maxDistance = 1000; // Allows extreme zooming out
+        controls.maxDistance = 1000; 
 
         const earthGroup = new THREE.Group();
         scene.add(earthGroup);
@@ -977,7 +977,7 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- INLINE SVGs FOR SIDEBAR ---
+    // --- INLINE SVGs FOR SIDEBAR & CONTROLS ---
     const IconMap = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>;
     const IconRadar = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>;
     const IconRocket = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path></svg>;
@@ -985,6 +985,11 @@
     const IconActivity = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>;
     const IconX = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
     const IconInfo = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>;
+    
+    // New Action Icons
+    const IconPlay = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>;
+    const IconPause = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>;
+    const IconReset = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>;
 
     function NavButton({ id, icon, label, activeTab, setActiveTab, colorClass = "text-cyan-400 bg-cyan-400/10 border-cyan-400/25" }) {
       const isActive = activeTab === id;
@@ -1040,7 +1045,6 @@
         ? Math.round(Math.abs(Math.cos(t * Math.PI)) * 6000) 
         : Math.round(t * 28000); 
 
-      // --- ORBIT MODE HUD LOGIC ---
       const isOrbitAchieved = flightProgress >= 100 && !isSuborbital;
 
       useEffect(() => {
@@ -1285,17 +1289,39 @@
                     </div>
 
                     <div className="absolute bottom-4 left-4 right-4 p-4 bg-[#091321]/70 backdrop-blur-md rounded-xl border border-slate-600/30 shadow-2xl">
-                      <div className="flex justify-between items-center mb-4">
-                        <button 
-                          onClick={() => {
-                            if (flightProgress >= 100) setFlightProgress(0); 
-                            setIsFlightPlaying(!isFlightPlaying);
-                          }}
-                          className={`px-5 py-2 text-xs font-bold font-mono rounded-lg border transition shadow-lg ${isFlightPlaying ? 'bg-slate-800 text-fuchsia-300 border-slate-700' : 'bg-fuchsia-500 text-white border-fuchsia-400 hover:bg-fuchsia-600'}`}
-                        >
-                          {isFlightPlaying ? '⏸ PAUSE' : '▶ PLAY LAUNCH'}
-                        </button>
-                        <span className="text-sm font-mono text-fuchsia-400 font-bold bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg">T+ {flightProgress.toFixed(1)}%</span>
+                      <div className="flex justify-between items-center mb-4 gap-2">
+                        {/* COMPACT CONTROL SUITE */}
+                        <div className="flex bg-slate-900 border border-slate-700 rounded-lg overflow-hidden shadow-lg flex-shrink-0">
+                          <button 
+                            onClick={() => {
+                              if (flightProgress >= 100) setFlightProgress(0);
+                              setIsFlightPlaying(true);
+                            }}
+                            className={`p-2.5 transition ${isFlightPlaying ? 'text-fuchsia-500 bg-slate-800' : 'text-white bg-fuchsia-600 hover:bg-fuchsia-500'}`}
+                            title="Play Launch"
+                          >
+                            <IconPlay />
+                          </button>
+                          <button 
+                            onClick={() => setIsFlightPlaying(false)}
+                            className={`p-2.5 transition border-l border-slate-700 ${!isFlightPlaying && flightProgress > 0 && flightProgress < 100 ? 'text-fuchsia-400 bg-slate-800' : 'text-slate-400 hover:bg-slate-700 hover:text-white'}`}
+                            title="Pause"
+                          >
+                            <IconPause />
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setIsFlightPlaying(false);
+                              setFlightProgress(0);
+                            }}
+                            className="p-2.5 text-slate-400 transition border-l border-slate-700 hover:bg-slate-700 hover:text-white"
+                            title="Reset to Pad"
+                          >
+                            <IconReset />
+                          </button>
+                        </div>
+                        
+                        <span className="text-sm font-mono text-fuchsia-400 font-bold bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg whitespace-nowrap">T+ {flightProgress.toFixed(1)}%</span>
                       </div>
                       
                       <input 
@@ -1311,7 +1337,6 @@
                         className="w-full accent-fuchsia-500 h-2 bg-slate-800 rounded-lg cursor-pointer relative z-10"
                       />
                       
-                      {/* DYNAMIC POSITIONED MILESTONE LABELS */}
                       <div className="relative w-full h-4 text-[10px] sm:text-xs font-mono text-slate-400 mt-4 px-1">
                         <span 
                           className={`absolute top-0 -translate-x-1/2 whitespace-nowrap ${flightProgress >= (trajData.tMaxQ * 100) ? "text-fuchsia-400 font-bold" : ""}`}
