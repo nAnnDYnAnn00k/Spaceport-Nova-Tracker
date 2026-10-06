@@ -124,7 +124,6 @@
       };
     };
 
-    // --- HIGH-RES 3D MASTER PLAN VIEWER ---
     function EnhancedThreeViewer({ year }) {
       const mountRef = useRef(null);
       const phasesRef = useRef({});
@@ -686,7 +685,7 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- GLOBAL ORBIT 3D VIEWER (DYNAMIC DELTA-TRACKING + VERTICAL AXIS LOCK) ---
+    // --- GLOBAL ORBIT 3D VIEWER (DYNAMIC DELTA-TRACKING + UNBOUND ZOOM & FREE LOOK) ---
     function TelemetryOrbitViewer3D({ rocket, progress, isFlightPlaying }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
@@ -713,13 +712,14 @@
         renderer.domElement.style.touchAction = 'none';
         currentContainer.appendChild(renderer.domElement);
 
-        // Native controls fully enabled for unbound pacing and zooming
+        // Native OrbitControls restored for flawless manual pacing and unlimited zoom
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan = false;
         controls.enableRotate = true; 
+        controls.enableZoom = true;
         controls.minDistance = 2; 
-        controls.maxDistance = 1000; 
+        controls.maxDistance = 1000; // Allows extreme zooming out
 
         const earthGroup = new THREE.Group();
         scene.add(earthGroup);
@@ -879,11 +879,10 @@
              if (t === 0 && sceneRef.current.lastT > 0) sceneRef.current.isTransitioning = true;
 
              if (t < 1) {
-                 // ASCENT & IDLE: Look at the Earth, standard dragging active
+                 // ASCENT & IDLE: Look at the Earth, standard free-look active
                  camera.up.lerp(new THREE.Vector3(0, 1, 0), 0.1);
-                 controls.maxPolarAngle = Math.PI / 2 - 0.05;
+                 controls.maxPolarAngle = Math.PI / 2 - 0.05; // Prevent clipping underground
 
-                 // Only control camera if we aren't dragging and we just reset
                  if (sceneRef.current.isTransitioning) {
                      controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
                      
@@ -901,16 +900,17 @@
              } else {
                  // ORBITAL: Track the rocket perfectly
                  
-                 // Anti-Clip & True Alignment: Bind the camera ceiling directly to the rocket's vertical axis
+                 // Bind the camera ceiling directly to the rocket's vertical axis
                  const rocketUp = currentRocketPos.clone().normalize();
                  camera.up.lerp(rocketUp, 0.1); 
                  
-                 // Mathematical Horizon clamp: Prevents rotating camera below the rocket
-                 controls.maxPolarAngle = Math.PI / 4; 
+                 // Anti-Clip Horizon Clamp: Full free-look dome OVER the rocket, but completely prevents clipping beneath it
+                 controls.maxPolarAngle = Math.PI / 2.1; 
                  
                  if (sceneRef.current.isTransitioning) {
-                     // Top-Down default swoop
-                     const idealCamLocal = new THREE.Vector3(0, -3, earthRadius + 18); 
+                     // Top-Down default swoop, 100% further away (Radius 55 instead of 28)
+                     // -2 offset on the Y axis prevents OrbitControls gimbal lock panic when looking exactly straight down
+                     const idealCamLocal = new THREE.Vector3(0, -2, 55); 
                      const idealCamWorld = rocketPivot.localToWorld(idealCamLocal);
                      
                      camera.position.lerp(idealCamWorld, 0.04);
@@ -920,7 +920,7 @@
                          sceneRef.current.isTransitioning = false;
                      }
                  } else {
-                     // TRUE MATRIX PACING: Preserves native distance and rotation while moving perfectly with rocket
+                     // TRUE MATRIX PACING: Preserves native distance and user rotation while moving perfectly with rocket
                      const invLast = new THREE.Matrix4().copy(sceneRef.current.lastRocketMatrixWorld).invert();
                      camera.position.applyMatrix4(invLast);
                      camera.position.applyMatrix4(rocketPivot.matrixWorld);
@@ -936,7 +936,7 @@
           controls.update(); 
 
           // Mathematical glass floor over the Earth's crust
-          const minCamRadius = 25.5; 
+          const minCamRadius = 26.0; 
           if (camera.position.length() < minCamRadius) {
               camera.position.copy(camera.position.clone().normalize().multiplyScalar(minCamRadius));
           }
