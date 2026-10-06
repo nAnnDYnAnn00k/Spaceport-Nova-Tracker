@@ -349,11 +349,12 @@
           }
           
           scene.traverse((object) => {
-            if (object.geometry) object.geometry.dispose();
-            if (object.material) {
-              if (object.material.map) object.material.map.dispose();
-              if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
-              else object.material.dispose();
+            if (object.isMesh || object.isLine) {
+              if (object.geometry) object.geometry.dispose();
+              if (object.material) {
+                if (Array.isArray(object.material)) object.material.forEach(m => m.dispose());
+                else object.material.dispose();
+              }
             }
           });
           
@@ -689,17 +690,10 @@
     // --- GLOBAL ORBIT 3D VIEWER (DYNAMIC CAMERA LOCK + SHADOW TRACKER DEBUGGED) ---
     function TelemetryOrbitViewer3D({ rocket, progress, isFlightPlaying }) {
       const mountRef = useRef(null);
-      const sceneRef = useRef({});
+      const sceneRef = useRef({ hasUserDraggedCamera: false, lastRocketPos: null });
       const progressRef = useRef(progress);
 
       useEffect(() => { progressRef.current = progress; }, [progress]);
-      
-      // Auto-re-engage camera lock when playback restarts
-      useEffect(() => {
-        if (isFlightPlaying && sceneRef.current) {
-          sceneRef.current.isLocked = true;
-        }
-      }, [isFlightPlaying]);
 
       useEffect(() => {
         const container = mountRef.current;
@@ -717,15 +711,21 @@
         renderer.setSize(w, h);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         
-        renderer.domElement.style.touchAction = 'none';
         currentContainer.appendChild(renderer.domElement);
 
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan = false;
-        controls.enableRotate = false; 
-        controls.minDistance = 30;
+        controls.minDistance = 2; // Allow zooming right up to the rocket
         controls.maxDistance = 100;
+
+        // --- NEW: Detect user interaction to break camera lock ---
+        const onInteract = () => {
+          if (progressRef.current >= 100) {
+            sceneRef.current.hasUserDraggedCamera = true;
+          }
+        };
+        controls.addEventListener('start', onInteract);
 
         const earthGroup = new THREE.Group();
         scene.add(earthGroup);
@@ -826,75 +826,31 @@
         camera.position.set(-50, 45, 35); 
         controls.target.set(0, 0, 0);
 
-        let isDragging = false;
-        let prevX = 0, prevY = 0;
-        let activePointerId = null;
-
-        const onPointerDown = (e) => {
-          if (isDragging) return; 
-          isDragging = true;
-          activePointerId = e.pointerId;
-          prevX = e.clientX;
-          prevY = e.clientY;
-          // Break camera lock upon user interaction
-          if (sceneRef.current) sceneRef.current.isLocked = false;
+        sceneRef.current = { 
+          rocketPivot, 
+          rocketMesh, 
+          insertionAngle, 
+          autoOrbitAngle: insertionAngle, 
+          earthRadius, 
+          hasUserDraggedCamera: false, 
+          lastRocketPos: null 
         };
-
-        const onPointerUp = (e) => { 
-          if (e.pointerId === activePointerId) {
-            isDragging = false; 
-            activePointerId = null;
-          }
-        };
-
-        const onPointerMove = (e) => {
-          if (!isDragging || e.pointerId !== activePointerId) return;
-          
-          let deltaX = e.clientX - prevX;
-          let deltaY = e.clientY - prevY;
-          
-          const maxDelta = 35; 
-          deltaX = Math.max(-maxDelta, Math.min(maxDelta, deltaX));
-          deltaY = Math.max(-maxDelta, Math.min(maxDelta, deltaY));
-          
-          const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
-          const camUp = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
-          
-          const qX = new THREE.Quaternion().setFromAxisAngle(camUp, deltaX * 0.005);
-          const qY = new THREE.Quaternion().setFromAxisAngle(camRight, deltaY * 0.005);
-          
-          earthGroup.quaternion.premultiply(qX);
-          earthGroup.quaternion.premultiply(qY);
-          
-          prevX = e.clientX;
-          prevY = e.clientY;
-        };
-
-        renderer.domElement.addEventListener('pointerdown', onPointerDown);
-        window.addEventListener('pointerup', onPointerUp);
-        window.addEventListener('pointercancel', onPointerUp);
-        window.addEventListener('pointermove', onPointerMove);
-
-        sceneRef.current = { rocketPivot, rocketMesh, insertionAngle, autoOrbitAngle: insertionAngle, earthRadius, isLocked: true };
 
         let frameId;
         const animate = () => {
           frameId = requestAnimationFrame(animate);
-          controls.update();
           
-          const autoSpin = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.0005);
-          earthGroup.quaternion.multiply(autoSpin);
+          earthGroup.rotation.y += 0.0005;
           
           if (sceneRef.current.rocketPivot) {
              const t = Math.max(0, Math.min(1, progressRef.current / 100));
-             const { rocketPivot, rocketMesh, insertionAngle, earthRadius, isLocked } = sceneRef.current;
+             const { rocketPivot, rocketMesh, insertionAngle, earthRadius } = sceneRef.current;
              
+             // Move the rocket physics
              if (t < 1) {
                rocketPivot.rotation.x = t * insertionAngle;
-               
                const alt = earthRadius + Math.sin(t * Math.PI / 2) * 3;
                rocketMesh.position.set(0, 0, alt);
-               
                rocketMesh.rotation.x = (Math.PI / 2) + (t * (Math.PI / 2));
                sceneRef.current.autoOrbitAngle = insertionAngle;
              } else {
@@ -906,28 +862,42 @@
 
              // --- CRITICAL FIX: Synchronize world matrices before reading them ---
              rocketMesh.updateMatrixWorld(true);
-             
-             const rocketWorldPos = new THREE.Vector3();
-             rocketMesh.getWorldPosition(rocketWorldPos);
+             const currentRocketPos = new THREE.Vector3();
+             rocketMesh.getWorldPosition(currentRocketPos);
 
-             if (isLocked) {
-                 if (t >= 1) {
-                     // Swoop in and lock onto the orbiting rocket (5 units behind, 2 units above the 50% scale model)
+             if (t < 1) {
+                 // ASCENT: Disable rotation, reset flags, and force cinematic view
+                 controls.enableRotate = false;
+                 sceneRef.current.hasUserDraggedCamera = false;
+                 
+                 camera.position.lerp(new THREE.Vector3(-50, 45, 35), 0.05);
+                 controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
+             } else {
+                 // ORBIT: Re-enable rotation so user can free-look around the rocket
+                 controls.enableRotate = true;
+                 
+                 // Calculate exact distance the rocket moved this frame
+                 const delta = currentRocketPos.clone().sub(sceneRef.current.lastRocketPos || currentRocketPos);
+                 
+                 if (!sceneRef.current.hasUserDraggedCamera) {
+                     // Auto-Swoop to ideal chase cam until user touches the screen
                      const idealCamPos = new THREE.Vector3(0, -5, -2);
                      rocketMesh.localToWorld(idealCamPos);
+                     
                      camera.position.lerp(idealCamPos, 0.03);
-                     controls.target.lerp(rocketWorldPos, 0.03);
+                     controls.target.lerp(currentRocketPos, 0.03);
                  } else {
-                     // Hold cinematic launch view during ascent
-                     camera.position.lerp(new THREE.Vector3(-50, 45, 35), 0.03);
-                     controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.03);
+                     // Delta Handoff: Shift the camera and target precisely with the rocket
+                     // This allows OrbitControls to process manual swipes relative to the moving rocket perfectly!
+                     camera.position.add(delta);
+                     controls.target.copy(currentRocketPos);
                  }
-             } else {
-                 // Disengaged lock: smoothly return target to earth center so manual pan feels natural
-                 controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
              }
+             
+             sceneRef.current.lastRocketPos = currentRocketPos.clone();
           }
           
+          controls.update(); // Process any manual user swipes on top of our new target
           renderer.render(scene, camera);
         };
         animate();
@@ -943,10 +913,7 @@
         return () => {
           cancelAnimationFrame(frameId);
           window.removeEventListener('resize', handleResize);
-          renderer.domElement.removeEventListener('pointerdown', onPointerDown);
-          window.removeEventListener('pointerup', onPointerUp);
-          window.removeEventListener('pointercancel', onPointerUp);
-          window.removeEventListener('pointermove', onPointerMove);
+          controls.removeEventListener('start', onInteract);
 
           if (currentContainer && currentContainer.contains(renderer.domElement)) {
             currentContainer.removeChild(renderer.domElement);
