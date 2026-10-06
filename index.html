@@ -185,15 +185,20 @@
         const terrainGeo = new THREE.PlaneGeometry(160, 160, 128, 128); 
         terrainGeo.rotateX(-Math.PI / 2);
         const pos = terrainGeo.attributes.position;
-        for (let i = 0; i < pos.count; i++) {
-          const x = pos.getX(i);
-          const z = pos.getZ(i);
+        
+        // Exact elevation generation matches physical drop off for realistic placement
+        const getElevation = (x, z) => {
           let elev = (Math.sin(x * 0.05) * Math.cos(z * 0.05) * 2);
           if (x > 15) elev -= (x - 15) * 0.15;
           if (z < -15) elev -= (-15 - z) * 0.1;
-          pos.setY(i, elev);
+          return elev;
+        };
+
+        for (let i = 0; i < pos.count; i++) {
+          pos.setY(i, getElevation(pos.getX(i), pos.getZ(i)));
         }
         terrainGeo.computeVertexNormals();
+        
         const terrainMat = new THREE.MeshStandardMaterial({ 
           color: 0xcccccc, 
           map: terrainTex, 
@@ -204,15 +209,14 @@
         terrain.receiveShadow = true;
         scene.add(terrain);
 
-        // 355-acre Perimeter Line
-        const perimeterPts = [
-          new THREE.Vector3(-60, 0.5, -60),
-          new THREE.Vector3(70, 0.5, -50),
-          new THREE.Vector3(75, 0.5, 45),
-          new THREE.Vector3(15, 0.5, 75),
-          new THREE.Vector3(-50, 0.5, 60),
-          new THREE.Vector3(-60, 0.5, -60)
+        // Coastline-Hugging 355-acre Perimeter Line
+        const perimeterCoords = [
+          [-45, 55], [15, 55], [28, 25], [30, 5], [26, -15],
+          [10, -25], [-10, -28], [-25, -20], [-40, -5], [-45, 55]
         ];
+        // Trace directly above terrain height to prevent clipping
+        const perimeterPts = perimeterCoords.map(([px, pz]) => new THREE.Vector3(px, getElevation(px, pz) + 0.3, pz));
+        
         const perimeterGeo = new THREE.BufferGeometry().setFromPoints(perimeterPts);
         const perimeterMat = new THREE.LineDashedMaterial({ color: 0xfacc15, dashSize: 3, gapSize: 3, linewidth: 2 });
         const perimeterLine = new THREE.Line(perimeterGeo, perimeterMat);
@@ -235,7 +239,7 @@
           return sprite;
         };
         const boundaryLabel = makeBoundaryLabel();
-        boundaryLabel.position.set(-35, 10, -60);
+        boundaryLabel.position.set(-25, 10, 45); 
         scene.add(boundaryLabel);
 
         const water = new THREE.Mesh(
@@ -249,15 +253,8 @@
         const p2024 = new THREE.Group();
         const p2026 = new THREE.Group();
         const p2028 = new THREE.Group();
+        const p2030 = new THREE.Group();
         const p2032 = new THREE.Group();
-        const p2035 = new THREE.Group();
-
-        const getElevation = (x, z) => {
-          let elev = (Math.sin(x * 0.05) * Math.cos(z * 0.05) * 2);
-          if (x > 15) elev -= (x - 15) * 0.15;
-          if (z < -15) elev -= (-15 - z) * 0.1;
-          return Math.max(elev, -0.5);
-        };
 
         const buildHIF = (width, depth) => {
           const group = new THREE.Group();
@@ -349,58 +346,54 @@
           return rGroup;
         };
 
-        // 2024
+        // 2024 Phase
         const subPad = buildPadComplex(-20, -10, 0.6, false, "small");
         p2024.add(subPad);
         const dishBase = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 2, 16), matConcrete);
-        dishBase.position.set(-30, getElevation(-30, -4) + 1, -4);
+        dishBase.position.set(-25, getElevation(-25, -4) + 1, -4);
         const dish = new THREE.Mesh(new THREE.SphereGeometry(1.5, 16, 16, 0, Math.PI*2, 0, Math.PI/2.5), matRocketBody);
         dish.rotation.x = Math.PI / 4;
-        dish.position.set(-30, getElevation(-30, -4) + 2.5, -4);
+        dish.position.set(-25, getElevation(-25, -4) + 2.5, -4);
         p2024.add(dishBase, dish);
 
-        // 2026
+        // 2026 Phase
         const gate = buildHIF(8, 6); 
         gate.position.set(-35, getElevation(-35, 30), 30);
         gate.rotation.y = Math.PI / 4;
         p2026.add(gate);
-
         const hub = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 15), matBuilding);
         hub.position.set(-15, getElevation(-15, 20) + 2, 20);
         hub.castShadow = true; hub.receiveShadow = true;
         p2026.add(hub);
 
-        // 2028
+        // 2028 Phase
         const pad1 = buildPadComplex(10, -5, 1);
         const rocket1 = buildRocket(1);
         rocket1.position.set(10, getElevation(10, -5) + 1.0, -5);
         p2028.add(pad1, rocket1);
-
         const hif1 = buildHIF(15, 12);
         hif1.position.set(-5, getElevation(-5, 5), 5);
         p2028.add(hif1);
 
-        // 2032
-        const pad2 = buildPadComplex(35, 15, 1.2);
+        // 2030 Phase (Pad 2 moved fully inland)
+        const pad2 = buildPadComplex(20, 15, 1.2); 
         const rocket2 = buildRocket(1.2);
-        rocket2.position.set(35, getElevation(35, 15) + 1.2, 15);
-        p2032.add(pad2, rocket2);
-
+        rocket2.position.set(20, getElevation(20, 15) + 1.2, 15);
+        p2030.add(pad2, rocket2);
         const hifExt = buildHIF(12, 10);
         hifExt.position.set(-21, getElevation(-21, 5), 5);
-        p2032.add(hifExt);
+        p2030.add(hifExt);
 
-        // 2035
-        const pad3 = buildPadComplex(-10, -35, 1.5);
+        // 2032 Phase (Pad 3 & 4 moved fully inland)
+        const pad3 = buildPadComplex(-5, -20, 1.5); 
         const rocket3 = buildRocket(1.5, "heavy");
-        rocket3.position.set(-10, getElevation(-10, -35) + 1.5, -35);
-        p2035.add(pad3, rocket3);
+        rocket3.position.set(-5, getElevation(-5, -20) + 1.5, -20);
+        p2032.add(pad3, rocket3);
+        const pad4 = buildPadComplex(15, -15, 1.1);
+        p2032.add(pad4);
 
-        const pad4 = buildPadComplex(25, -40, 1.1);
-        p2035.add(pad4);
-
-        scene.add(p2024, p2026, p2028, p2032, p2035);
-        phasesRef.current = { p2024, p2026, p2028, p2032, p2035 };
+        scene.add(p2024, p2026, p2028, p2030, p2032);
+        phasesRef.current = { p2024, p2026, p2028, p2030, p2032 };
 
         let frameId;
         const animate = () => {
@@ -439,13 +432,13 @@
       }, []);
 
       useEffect(() => {
-        const { p2024, p2026, p2028, p2032, p2035 } = phasesRef.current;
+        const { p2024, p2026, p2028, p2030, p2032 } = phasesRef.current;
         if (p2024) {
           p2024.visible = year >= 2024;
           p2026.visible = year >= 2026;
           p2028.visible = year >= 2028;
+          p2030.visible = year >= 2030;
           p2032.visible = year >= 2032;
-          p2035.visible = year >= 2035;
         }
       }, [year]);
 
@@ -1092,7 +1085,7 @@
       const [distanceKm, setDistanceKm] = useState(4.2);
       const [gpsActive, setGpsActive] = useState(false);
       const [gpsCoords, setGpsCoords] = useState(null);
-      const [buildYear, setBuildYear] = useState(2035);
+      const [buildYear, setBuildYear] = useState(2032);
       
       const [flightProgress, setFlightProgress] = useState(0);
       const [isFlightPlaying, setIsFlightPlaying] = useState(false);
@@ -1251,7 +1244,7 @@
             {activeTab === '3d-build' && (
               <div className="space-y-6">
                 <div className="bg-[#111a28] border border-[#233247] rounded-2xl p-6 shadow-xl">
-                  <h2 className="text-xs font-mono uppercase text-cyan-400 mb-2 font-bold tracking-wider">Canso Site Master Plan (2022 - 2035)</h2>
+                  <h2 className="text-xs font-mono uppercase text-cyan-400 mb-2 font-bold tracking-wider">Canso Site Master Plan (2022 - 2032)</h2>
                   <p className="text-sm text-slate-400 mb-5">Topographic expansion mapping 4 commercial launch pads. Click and drag to orbit. Scroll to zoom.</p>
                   
                   <div className="relative rounded-xl overflow-hidden border border-[#233247] shadow-inner bg-[#091321]">
@@ -1265,17 +1258,17 @@
                       <input 
                         type="range" 
                         min="2022" 
-                        max="2035" 
+                        max="2032" 
                         step="1" 
                         value={buildYear}
                         onChange={(e) => setBuildYear(parseInt(e.target.value))}
                         className="w-full accent-cyan-400 h-2 bg-slate-800 rounded-lg cursor-pointer"
                       />
                       <div className="flex justify-between text-[10px] sm:text-xs font-mono text-slate-400 mt-3 px-1">
-                        <span className={buildYear >= 2024 && buildYear < 2028 ? "text-cyan-400" : ""}>2024 (Suborbital)</span>
-                        <span className={buildYear >= 2028 && buildYear < 2032 ? "text-cyan-400" : ""}>2028 (Pad 1)</span>
-                        <span className={buildYear >= 2032 && buildYear < 2035 ? "text-cyan-400" : ""}>2032 (Pad 2)</span>
-                        <span className={buildYear === 2035 ? "text-cyan-400" : ""}>2035 (4-Pad Complex)</span>
+                        <span className={buildYear >= 2024 && buildYear < 2028 ? "text-cyan-400" : ""}>2024 (Sub)</span>
+                        <span className={buildYear >= 2028 && buildYear < 2030 ? "text-cyan-400" : ""}>2028 (Pad 1)</span>
+                        <span className={buildYear >= 2030 && buildYear < 2032 ? "text-cyan-400" : ""}>2030 (Pad 2)</span>
+                        <span className={buildYear === 2032 ? "text-cyan-400" : ""}>2032 (4-Pad Complex)</span>
                       </div>
                     </div>
                   </div>
