@@ -686,8 +686,8 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- GLOBAL ORBIT 3D VIEWER (DYNAMIC DELTA-TRACKING + UNBOUND ZOOM) ---
-    function TelemetryOrbitViewer3D({ rocket, progress }) {
+    // --- GLOBAL ORBIT 3D VIEWER (DYNAMIC DELTA-TRACKING + VERTICAL AXIS LOCK) ---
+    function TelemetryOrbitViewer3D({ rocket, progress, isFlightPlaying }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
       const progressRef = useRef(progress);
@@ -713,7 +713,7 @@
         renderer.domElement.style.touchAction = 'none';
         currentContainer.appendChild(renderer.domElement);
 
-        // Native OrbitControls restored for flawless manual pacing and unlimited zoom
+        // Native controls fully enabled for unbound pacing and zooming
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan = false;
@@ -857,7 +857,7 @@
                rocketMesh.rotation.x = (Math.PI / 2) + (t * (Math.PI / 2));
                sceneRef.current.autoOrbitAngle = insertionAngle;
              } else {
-               sceneRef.current.autoOrbitAngle += 0.0025;
+               sceneRef.current.autoOrbitAngle += 0.0025; // Continuous orbit
                rocketPivot.rotation.x = sceneRef.current.autoOrbitAngle;
                rocketMesh.position.set(0, 0, orbitRadius);
                rocketMesh.rotation.x = Math.PI; 
@@ -883,6 +883,7 @@
                  camera.up.lerp(new THREE.Vector3(0, 1, 0), 0.1);
                  controls.maxPolarAngle = Math.PI / 2 - 0.05;
 
+                 // Only control camera if we aren't dragging and we just reset
                  if (sceneRef.current.isTransitioning) {
                      controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
                      
@@ -903,10 +904,12 @@
                  // Anti-Clip & True Alignment: Bind the camera ceiling directly to the rocket's vertical axis
                  const rocketUp = currentRocketPos.clone().normalize();
                  camera.up.lerp(rocketUp, 0.1); 
-                 controls.maxPolarAngle = Math.PI / 2.1; 
+                 
+                 // Mathematical Horizon clamp: Prevents rotating camera below the rocket
+                 controls.maxPolarAngle = Math.PI / 4; 
                  
                  if (sceneRef.current.isTransitioning) {
-                     // Default Top-Down swoop
+                     // Top-Down default swoop
                      const idealCamLocal = new THREE.Vector3(0, -3, earthRadius + 18); 
                      const idealCamWorld = rocketPivot.localToWorld(idealCamLocal);
                      
@@ -1053,7 +1056,7 @@
           interval = setInterval(() => {
             setFlightProgress(prev => {
               if (prev >= 100) {
-                setIsFlightPlaying(false);
+                // Remove the automatic stop at 100%, allow infinite orbit
                 return 100;
               }
               return prev + 0.5;
@@ -1294,7 +1297,7 @@
                         <div className="flex bg-slate-900 border border-slate-700 rounded-lg overflow-hidden shadow-lg flex-shrink-0">
                           <button 
                             onClick={() => {
-                              if (flightProgress >= 100) setFlightProgress(0);
+                              if (flightProgress >= 100 && isSuborbital) setFlightProgress(0);
                               setIsFlightPlaying(true);
                             }}
                             className={`p-2.5 transition ${isFlightPlaying ? 'text-fuchsia-500 bg-slate-800' : 'text-white bg-fuchsia-600 hover:bg-fuchsia-500'}`}
@@ -1304,7 +1307,7 @@
                           </button>
                           <button 
                             onClick={() => setIsFlightPlaying(false)}
-                            className={`p-2.5 transition border-l border-slate-700 ${!isFlightPlaying && flightProgress > 0 && flightProgress < 100 ? 'text-fuchsia-400 bg-slate-800' : 'text-slate-400 hover:bg-slate-700 hover:text-white'}`}
+                            className={`p-2.5 transition border-l border-slate-700 ${!isFlightPlaying && flightProgress > 0 && (!isOrbitAchieved || flightProgress >= 100) ? 'text-fuchsia-400 bg-slate-800' : 'text-slate-400 hover:bg-slate-700 hover:text-white'}`}
                             title="Pause"
                           >
                             <IconPause />
@@ -1337,6 +1340,7 @@
                         className="w-full accent-fuchsia-500 h-2 bg-slate-800 rounded-lg cursor-pointer relative z-10"
                       />
                       
+                      {/* DYNAMIC POSITIONED MILESTONE LABELS */}
                       <div className="relative w-full h-4 text-[10px] sm:text-xs font-mono text-slate-400 mt-4 px-1">
                         <span 
                           className={`absolute top-0 -translate-x-1/2 whitespace-nowrap ${flightProgress >= (trajData.tMaxQ * 100) ? "text-fuchsia-400 font-bold" : ""}`}
