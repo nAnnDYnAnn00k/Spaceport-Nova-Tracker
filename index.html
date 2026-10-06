@@ -721,7 +721,7 @@
         controls.enableRotate = true; 
         controls.enableZoom = true;
         controls.minDistance = 2; 
-        controls.maxDistance = 250; // REDUCED BY 75% FROM 1000[cite: 1]
+        controls.maxDistance = 250; // REDUCED BY 75% FROM 1000
 
         // 3. PROXY ORBIT CONTROLS (Used to track user dragging without fighting orbital physics)
         const dummyCamera = new THREE.PerspectiveCamera(45, w / h, 0.1, 10000);
@@ -730,7 +730,7 @@
         dummyControls.enableDamping = true;
         dummyControls.enablePan = false;
         dummyControls.minDistance = 2; 
-        dummyControls.maxDistance = 250; // REDUCED BY 75% FROM 1000[cite: 1]
+        dummyControls.maxDistance = 250; // REDUCED BY 75% FROM 1000
         dummyControls.maxPolarAngle = Math.PI / 4; // Absolute 45-degree top-down limit for the proxy
 
         const earthGroup = new THREE.Group();
@@ -835,10 +835,13 @@
           padPos,
           lastT: 0,
           isTransitioning: false,
-          isFlightPlaying: isFlightPlaying
+          lastRocketMatrixWorld: null
         };
 
-        const breakTransition = () => { if (sceneRef.current) sceneRef.current.isTransitioning = false; };
+        // Break transition smoothly if the user interacts during a swoop
+        const breakTransition = () => {
+            if (sceneRef.current) sceneRef.current.isTransitioning = false;
+        };
         renderer.domElement.addEventListener('pointerdown', breakTransition);
         renderer.domElement.addEventListener('wheel', breakTransition, { passive: true });
         renderer.domElement.addEventListener('touchstart', breakTransition, { passive: true });
@@ -846,7 +849,8 @@
         let frameId;
         const animate = () => {
           frameId = requestAnimationFrame(animate);
-          earthGroup.rotation.y += 0.0005; // Universal idle spin
+          
+          earthGroup.rotation.y += 0.0005; // Idle spinning
           
           if (sceneRef.current.rocketPivot) {
              const t = Math.max(0, Math.min(1, progressRef.current / 100));
@@ -868,6 +872,7 @@
                rocketMesh.rotation.x = Math.PI; 
              }
 
+             // Force matrix calculations to ensure camera tracking is perfectly smooth
              rocketPivot.updateMatrixWorld(true);
              rocketMesh.updateMatrixWorld(true);
              const currentRocketPos = new THREE.Vector3();
@@ -883,61 +888,60 @@
              if (t === 0 && sceneRef.current.lastT > 0) sceneRef.current.isTransitioning = true;
 
              if (t < 1) {
-                 // ASCENT / IDLE: Earth Controls Active. Free-look and drag anywhere.
-                 controls.enabled = true;
-                 dummyControls.enabled = false;
-                 
+                 // ASCENT & IDLE: Look at the Earth, standard dragging active
                  camera.up.lerp(new THREE.Vector3(0, 1, 0), 0.1);
                  controls.maxPolarAngle = Math.PI / 2 - 0.05;
 
                  if (sceneRef.current.isTransitioning) {
-                     // Smoothly return to standard view relative to spun Earth
+                     controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
+                     
+                     // Transform default camera angle dynamically relative to spinning Earth pad
                      const relativeOffset = new THREE.Vector3(-50, 45, 35).sub(padPos);
                      relativeOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), earthGroup.rotation.y);
+                     const targetCamPos = padPos.clone().add(relativeOffset);
                      
-                     camera.position.lerp(padPos.clone().add(relativeOffset), 0.05);
-                     controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
-                     camera.lookAt(controls.target);
+                     camera.position.lerp(targetCamPos, 0.05);
                      
-                     if (controls.target.distanceTo(new THREE.Vector3(0, 0, 0)) < 0.5) sceneRef.current.isTransitioning = false;
-                 } else {
-                     controls.update(); 
+                     if (controls.target.distanceTo(new THREE.Vector3(0, 0, 0)) < 0.5) {
+                         sceneRef.current.isTransitioning = false;
+                     }
                  }
              } else {
-                 // ORBITAL: Proxy Camera Active. Real Earth controls frozen.
-                 controls.enabled = false;
-                 dummyControls.enabled = true;
-                 dummyControls.update(); // Process user dragging the proxy camera
+                 // ORBITAL: Track the rocket perfectly
                  
-                 // Map Proxy to Rocket Airspace (Proxy Y = Rocket Z, Proxy Z = Rocket -Y)
-                 const dummyPos = dummyCamera.position;
-                 const localOffset = new THREE.Vector3(dummyPos.x, -dummyPos.z, dummyPos.y);
-                 const targetCamWorld = rocketPivot.localToWorld(localOffset);
+                 // Anti-Clip & True Alignment: Bind the camera ceiling directly to the rocket's vertical axis
+                 const rocketUp = currentRocketPos.clone().normalize();
+                 camera.up.lerp(rocketUp, 0.1); 
+                 controls.maxPolarAngle = Math.PI / 2.1; 
                  
-                 // Bind camera ceiling to Rocket Vertical Axis
-                 const upVector = rocketPivot.localToWorld(new THREE.Vector3(0,0,1)).sub(rocketPivot.getWorldPosition(new THREE.Vector3())).normalize();
-
                  if (sceneRef.current.isTransitioning) {
-                     camera.position.lerp(targetCamWorld, 0.05);
-                     camera.up.lerp(upVector, 0.05);
+                     // Default Top-Down swoop
+                     const idealCamLocal = new THREE.Vector3(0, -3, earthRadius + 18); 
+                     const idealCamWorld = rocketPivot.localToWorld(idealCamLocal);
                      
-                     const lookTarget = controls.target.clone().lerp(currentRocketPos, 0.05);
-                     controls.target.copy(lookTarget);
-                     camera.lookAt(lookTarget);
+                     camera.position.lerp(idealCamWorld, 0.04);
+                     controls.target.lerp(currentRocketPos, 0.04);
                      
-                     if (camera.position.distanceTo(targetCamWorld) < 1.0) sceneRef.current.isTransitioning = false;
+                     if (controls.target.distanceTo(currentRocketPos) < 0.5 && camera.position.distanceTo(idealCamWorld) < 1.0) {
+                         sceneRef.current.isTransitioning = false;
+                     }
                  } else {
-                     // 100% Pacing without Gimbal Lock
-                     camera.position.copy(targetCamWorld);
-                     camera.up.copy(upVector);
+                     // TRUE MATRIX PACING: Preserves native distance and rotation while moving perfectly with rocket
+                     const invLast = new THREE.Matrix4().copy(sceneRef.current.lastRocketMatrixWorld).invert();
+                     camera.position.applyMatrix4(invLast);
+                     camera.position.applyMatrix4(rocketPivot.matrixWorld);
                      controls.target.copy(currentRocketPos);
-                     camera.lookAt(currentRocketPos);
                  }
              }
+
+             // Save exact spatial layout for delta-tracking on the next frame
+             sceneRef.current.lastRocketMatrixWorld = rocketPivot.matrixWorld.clone();
              sceneRef.current.lastT = t;
           }
           
-          // Anti-Clip Glass Floor Safety
+          controls.update(); 
+
+          // Mathematical glass floor over the Earth's crust
           const minCamRadius = 25.5; 
           if (camera.position.length() < minCamRadius) {
               camera.position.copy(camera.position.clone().normalize().multiplyScalar(minCamRadius));
@@ -1038,8 +1042,10 @@
       useEffect(() => {
         if (isSuborbital && flightView === 'global') {
           setFlightView('2d');
+        } else if (!isSuborbital && flightProgress >= 100 && flightView !== 'global') {
+          setFlightView('global');
         }
-      }, [isSuborbital, flightView]);
+      }, [isSuborbital, flightView, flightProgress]);
 
       const trajData = useMemo(() => getTrajectoryData(isSuborbital), [isSuborbital]);
       
