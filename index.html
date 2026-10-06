@@ -686,7 +686,7 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- GLOBAL ORBIT 3D VIEWER (DYNAMIC DELTA-TRACKING + VERTICAL AXIS LOCK) ---
+    // --- GLOBAL ORBIT 3D VIEWER (NATIVE DELTA-MATRIX DRONE CAM) ---
     function TelemetryOrbitViewer3D({ rocket, progress, isFlightPlaying }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
@@ -713,13 +713,13 @@
         renderer.domElement.style.touchAction = 'none';
         currentContainer.appendChild(renderer.domElement);
 
-        // Controls are always enabled to restore idle free-look
+        // Native controls fully enabled for unbound pacing and zooming
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan = false;
         controls.enableRotate = true; 
         controls.minDistance = 2; 
-        controls.maxDistance = 100;
+        controls.maxDistance = 1000; // Allows extreme zooming out
 
         const earthGroup = new THREE.Group();
         scene.add(earthGroup);
@@ -826,10 +826,19 @@
           insertionAngle, 
           autoOrbitAngle: insertionAngle, 
           earthRadius,
+          padPos,
           lastT: 0,
           isTransitioning: false,
-          camLocalPos: null
+          lastRocketMatrixWorld: null
         };
+
+        // Break transition smoothly if the user interacts during a swoop
+        const breakTransition = () => {
+            if (sceneRef.current) sceneRef.current.isTransitioning = false;
+        };
+        renderer.domElement.addEventListener('pointerdown', breakTransition);
+        renderer.domElement.addEventListener('wheel', breakTransition, { passive: true });
+        renderer.domElement.addEventListener('touchstart', breakTransition, { passive: true });
 
         let frameId;
         const animate = () => {
@@ -839,7 +848,7 @@
           
           if (sceneRef.current.rocketPivot) {
              const t = Math.max(0, Math.min(1, progressRef.current / 100));
-             const { rocketPivot, rocketMesh, insertionAngle, earthRadius } = sceneRef.current;
+             const { rocketPivot, rocketMesh, insertionAngle, earthRadius, padPos } = sceneRef.current;
              
              if (t < 1) {
                rocketPivot.rotation.x = t * insertionAngle;
@@ -854,42 +863,50 @@
                rocketMesh.rotation.x = Math.PI; 
              }
 
+             // Force matrix calculations to ensure camera tracking is perfectly smooth
              rocketPivot.updateMatrixWorld(true);
              rocketMesh.updateMatrixWorld(true);
              const currentRocketPos = new THREE.Vector3();
              rocketMesh.getWorldPosition(currentRocketPos);
 
-             if (sceneRef.current.lastT < 1 && t >= 1) sceneRef.current.isTransitioning = true;
-             if (sceneRef.current.lastT >= 1 && t < 1) sceneRef.current.isTransitioning = true;
-
-             // Hard Reset from orbital view back to standard view
-             if (t === 0 && sceneRef.current.lastT > 0) {
-                 sceneRef.current.isTransitioning = true;
+             if (!sceneRef.current.lastRocketMatrixWorld) {
+                 sceneRef.current.lastRocketMatrixWorld = rocketPivot.matrixWorld.clone();
              }
 
+             // Detect Handoffs
+             if (sceneRef.current.lastT < 1 && t >= 1) sceneRef.current.isTransitioning = true;
+             if (sceneRef.current.lastT >= 1 && t < 1) sceneRef.current.isTransitioning = true;
+             if (t === 0 && sceneRef.current.lastT > 0) sceneRef.current.isTransitioning = true;
+
              if (t < 1) {
-                 // ASCENT & IDLE: Look at the Earth, standard dragging restored
+                 // ASCENT & IDLE: Look at the Earth, standard dragging active
                  camera.up.lerp(new THREE.Vector3(0, 1, 0), 0.1);
-                 controls.maxPolarAngle = Math.PI / 2 - 0.05; // Lock above ground
+                 controls.maxPolarAngle = Math.PI / 2 - 0.05;
 
                  if (sceneRef.current.isTransitioning) {
                      controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
-                     camera.position.lerp(new THREE.Vector3(-50, 45, 35), 0.05);
+                     
+                     // Transform default camera angle dynamically relative to spinning Earth pad
+                     const relativeOffset = new THREE.Vector3(-50, 45, 35).sub(padPos);
+                     relativeOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), earthGroup.rotation.y);
+                     const targetCamPos = padPos.clone().add(relativeOffset);
+                     
+                     camera.position.lerp(targetCamPos, 0.05);
                      
                      if (controls.target.distanceTo(new THREE.Vector3(0, 0, 0)) < 0.5) {
                          sceneRef.current.isTransitioning = false;
                      }
                  }
              } else {
-                 // ORBITAL: Track the rocket
+                 // ORBITAL: Track the rocket perfectly
+                 
+                 // Anti-Clip & True Alignment: Bind the camera ceiling directly to the rocket's vertical axis
                  const rocketUp = currentRocketPos.clone().normalize();
                  camera.up.lerp(rocketUp, 0.1); 
-                 
-                 // Anti-Clip Horizon Clamp
                  controls.maxPolarAngle = Math.PI / 2.1; 
                  
                  if (sceneRef.current.isTransitioning) {
-                     // Top-Down default swoop (Slightly behind to avoid mathematical lock)
+                     // Default Top-Down swoop
                      const idealCamLocal = new THREE.Vector3(0, -3, earthRadius + 18); 
                      const idealCamWorld = rocketPivot.localToWorld(idealCamLocal);
                      
@@ -898,32 +915,24 @@
                      
                      if (controls.target.distanceTo(currentRocketPos) < 0.5 && camera.position.distanceTo(idealCamWorld) < 1.0) {
                          sceneRef.current.isTransitioning = false;
-                         rocketPivot.updateMatrixWorld(true);
-                         sceneRef.current.camLocalPos = rocketPivot.worldToLocal(camera.position.clone());
                      }
                  } else {
-                     // Track stored camera swipe offset relative to moving rocket
-                     if (sceneRef.current.camLocalPos) {
-                         const targetCamWorld = rocketPivot.localToWorld(sceneRef.current.camLocalPos.clone());
-                         camera.position.copy(targetCamWorld);
-                         controls.target.copy(currentRocketPos);
-                     }
+                     // TRUE MATRIX PACING: Preserves native distance and rotation while moving perfectly with rocket
+                     const invLast = new THREE.Matrix4().copy(sceneRef.current.lastRocketMatrixWorld).invert();
+                     camera.position.applyMatrix4(invLast);
+                     camera.position.applyMatrix4(rocketPivot.matrixWorld);
+                     controls.target.copy(currentRocketPos);
                  }
              }
 
+             // Save exact spatial layout for delta-tracking on the next frame
+             sceneRef.current.lastRocketMatrixWorld = rocketPivot.matrixWorld.clone();
              sceneRef.current.lastT = t;
           }
           
           controls.update(); 
 
-          // Save custom swipe offset
-          const tCheck = Math.max(0, Math.min(1, progressRef.current / 100));
-          if (tCheck >= 1 && !sceneRef.current.isTransitioning && sceneRef.current.rocketPivot) {
-              sceneRef.current.rocketPivot.updateMatrixWorld(true);
-              sceneRef.current.camLocalPos = sceneRef.current.rocketPivot.worldToLocal(camera.position.clone());
-          }
-
-          // Anti-Clip Floor Safety Layer
+          // Mathematical glass floor over the Earth's crust
           const minCamRadius = 25.5; 
           if (camera.position.length() < minCamRadius) {
               camera.position.copy(camera.position.clone().normalize().multiplyScalar(minCamRadius));
@@ -944,7 +953,10 @@
         return () => {
           cancelAnimationFrame(frameId);
           window.removeEventListener('resize', handleResize);
-          
+          renderer.domElement.removeEventListener('pointerdown', breakTransition);
+          renderer.domElement.removeEventListener('wheel', breakTransition);
+          renderer.domElement.removeEventListener('touchstart', breakTransition);
+
           if (currentContainer && currentContainer.contains(renderer.domElement)) {
             currentContainer.removeChild(renderer.domElement);
           }
