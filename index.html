@@ -693,7 +693,6 @@
       const progressRef = useRef(progress);
 
       useEffect(() => { progressRef.current = progress; }, [progress]);
-      useEffect(() => { sceneRef.current.isFlightPlaying = isFlightPlaying; }, [isFlightPlaying]);
 
       useEffect(() => {
         const container = mountRef.current;
@@ -886,7 +885,9 @@
              if (t < 1) {
                  // ASCENT & IDLE: Look at the Earth, standard dragging and full free-look active
                  camera.up.lerp(new THREE.Vector3(0, 1, 0), 0.1);
-                 controls.maxPolarAngle = Math.PI / 2 - 0.05;
+                 
+                 // Remove orbital clamp during ascent so you can see the whole earth
+                 controls.maxPolarAngle = Math.PI; 
 
                  if (sceneRef.current.isTransitioning) {
                      controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
@@ -909,17 +910,16 @@
                  const rocketUp = currentRocketPos.clone().normalize();
                  camera.up.copy(rocketUp); 
                  
-                 // Mathematical Horizon clamp: Prevents rotating camera below the rocket
-                 controls.maxPolarAngle = Math.PI / 4; 
+                 // Horizon clamp: Prevents rotating camera beneath the rocket into the Earth, but allows 360 over it
+                 controls.maxPolarAngle = Math.PI / 2.1; 
                  
                  if (sceneRef.current.isTransitioning) {
-                     // Top-Down default swoop, 100% further away (Radius 55 instead of 28)
-                     // -5 offset on the Y axis prevents OrbitControls gimbal lock panic when looking exactly straight down
-                     const idealCamLocal = new THREE.Vector3(0, -5, earthRadius + 30); 
+                     // Top-Down default swoop, positioned 100% further away (Radius 55 instead of 28)
+                     const idealCamLocal = new THREE.Vector3(0, -2, 55); 
                      const idealCamWorld = rocketPivot.localToWorld(idealCamLocal);
                      
-                     camera.position.lerp(idealCamWorld, 0.05);
-                     controls.target.lerp(currentRocketPos, 0.05);
+                     camera.position.lerp(idealCamWorld, 0.04);
+                     controls.target.lerp(currentRocketPos, 0.04);
                      
                      if (controls.target.distanceTo(currentRocketPos) < 0.5 && camera.position.distanceTo(idealCamWorld) < 1.0) {
                          sceneRef.current.isTransitioning = false;
