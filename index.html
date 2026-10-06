@@ -124,6 +124,7 @@
       };
     };
 
+    // --- HIGH-RES 3D MASTER PLAN VIEWER ---
     function EnhancedThreeViewer({ year }) {
       const mountRef = useRef(null);
       const phasesRef = useRef({});
@@ -685,13 +686,20 @@
       return <div ref={mountRef} className="w-full h-[550px]" />;
     }
 
-    // --- GLOBAL ORBIT 3D VIEWER (HUD + SHADOW TRACKER) ---
-    function TelemetryOrbitViewer3D({ rocket, progress }) {
+    // --- GLOBAL ORBIT 3D VIEWER (DYNAMIC CAMERA LOCK + SHADOW TRACKER DEBUGGED) ---
+    function TelemetryOrbitViewer3D({ rocket, progress, isFlightPlaying }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
       const progressRef = useRef(progress);
 
       useEffect(() => { progressRef.current = progress; }, [progress]);
+      
+      // Auto-re-engage camera lock when playback restarts
+      useEffect(() => {
+        if (isFlightPlaying && sceneRef.current) {
+          sceneRef.current.isLocked = true;
+        }
+      }, [isFlightPlaying]);
 
       useEffect(() => {
         const container = mountRef.current;
@@ -808,11 +816,10 @@
         const rocketMesh = new THREE.Mesh(rocketGeo, new THREE.MeshBasicMaterial({ color: 0x22d3ee }));
         rocketPivot.add(rocketMesh);
 
-        // --- NEW: Sub-Satellite Ground Track Shadow ---
+        // Ground Track Shadow
         const shadowGeo = new THREE.SphereGeometry(0.15, 8, 8);
         const shadowMat = new THREE.MeshBasicMaterial({ color: 0xf472b6 }); 
         const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
-        // Locks to the surface while the rocket climbs away on the Z-axis
         shadowMesh.position.set(0, 0, earthRadius + 0.05); 
         rocketPivot.add(shadowMesh);
 
@@ -829,6 +836,8 @@
           activePointerId = e.pointerId;
           prevX = e.clientX;
           prevY = e.clientY;
+          // Break camera lock upon user interaction
+          if (sceneRef.current) sceneRef.current.isLocked = false;
         };
 
         const onPointerUp = (e) => { 
@@ -866,7 +875,7 @@
         window.addEventListener('pointercancel', onPointerUp);
         window.addEventListener('pointermove', onPointerMove);
 
-        sceneRef.current = { rocketPivot, rocketMesh, insertionAngle, autoOrbitAngle: insertionAngle, earthRadius };
+        sceneRef.current = { rocketPivot, rocketMesh, insertionAngle, autoOrbitAngle: insertionAngle, earthRadius, isLocked: true };
 
         let frameId;
         const animate = () => {
@@ -878,7 +887,7 @@
           
           if (sceneRef.current.rocketPivot) {
              const t = Math.max(0, Math.min(1, progressRef.current / 100));
-             const { rocketPivot, rocketMesh, insertionAngle, earthRadius } = sceneRef.current;
+             const { rocketPivot, rocketMesh, insertionAngle, earthRadius, isLocked } = sceneRef.current;
              
              if (t < 1) {
                rocketPivot.rotation.x = t * insertionAngle;
@@ -893,6 +902,29 @@
                rocketPivot.rotation.x = sceneRef.current.autoOrbitAngle;
                rocketMesh.position.set(0, 0, orbitRadius);
                rocketMesh.rotation.x = Math.PI; 
+             }
+
+             // --- CRITICAL FIX: Synchronize world matrices before reading them ---
+             rocketMesh.updateMatrixWorld(true);
+             
+             const rocketWorldPos = new THREE.Vector3();
+             rocketMesh.getWorldPosition(rocketWorldPos);
+
+             if (isLocked) {
+                 if (t >= 1) {
+                     // Swoop in and lock onto the orbiting rocket (5 units behind, 2 units above the 50% scale model)
+                     const idealCamPos = new THREE.Vector3(0, -5, -2);
+                     rocketMesh.localToWorld(idealCamPos);
+                     camera.position.lerp(idealCamPos, 0.03);
+                     controls.target.lerp(rocketWorldPos, 0.03);
+                 } else {
+                     // Hold cinematic launch view during ascent
+                     camera.position.lerp(new THREE.Vector3(-50, 45, 35), 0.03);
+                     controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.03);
+                 }
+             } else {
+                 // Disengaged lock: smoothly return target to earth center so manual pan feels natural
+                 controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
              }
           }
           
@@ -1213,29 +1245,29 @@
                     
                     {flightView === '2d' && <TelemetryArcViewer2D rocket={activeRocket} progress={flightProgress} currentAlt={currentAlt} trajData={trajData} />}
                     {flightView === '3d-launch' && <TelemetryArcViewer3D rocket={activeRocket} progress={flightProgress} trajData={trajData} />}
-                    {flightView === 'global' && !isSuborbital && <TelemetryOrbitViewer3D rocket={activeRocket} progress={flightProgress} />}
+                    {flightView === 'global' && !isSuborbital && <TelemetryOrbitViewer3D rocket={activeRocket} progress={flightProgress} isFlightPlaying={isFlightPlaying} />}
 
                     {/* DYNAMIC ORBIT HANDOFF HUD */}
                     <div className="absolute top-3 left-3 right-3 flex flex-wrap gap-2 pointer-events-none z-20">
-                      <div className={`bg-[#091321]/80 backdrop-blur-md border rounded-lg p-2.5 flex flex-col pointer-events-auto min-w-[90px] transition-all duration-500 ${isOrbitAchieved ? 'shadow-[0_0_15px_rgba(52,211,153,0.15)] border-emerald-500/40' : 'border-slate-600/30 shadow-2xl'}`}>
-                        <span className={`text-[9px] font-mono mb-0.5 ${isOrbitAchieved ? 'text-emerald-500 font-bold' : 'text-slate-400'}`}>
-                          {isOrbitAchieved ? 'ORBITAL ALT' : 'EST. ALTITUDE'}
+                      <div className={`bg-[#091321]/80 backdrop-blur-md border rounded-lg p-2.5 flex flex-col pointer-events-auto min-w-[90px] transition-all duration-500 ${isOrbitAchieved && flightView === 'global' ? 'shadow-[0_0_15px_rgba(52,211,153,0.15)] border-emerald-500/40' : 'border-slate-600/30 shadow-2xl'}`}>
+                        <span className={`text-[9px] font-mono mb-0.5 ${isOrbitAchieved && flightView === 'global' ? 'text-emerald-500 font-bold' : 'text-slate-400'}`}>
+                          {isOrbitAchieved && flightView === 'global' ? 'ORBITAL ALT' : 'EST. ALTITUDE'}
                         </span>
-                        <span className={`text-lg font-bold font-mono transition-colors duration-500 ${isOrbitAchieved ? 'text-emerald-400' : 'text-cyan-400'}`}>
+                        <span className={`text-lg font-bold font-mono transition-colors duration-500 ${isOrbitAchieved && flightView === 'global' ? 'text-emerald-400' : 'text-cyan-400'}`}>
                           {currentAlt.toLocaleString()} <span className="text-xs opacity-70">km</span>
                         </span>
                       </div>
                       
-                      <div className={`bg-[#091321]/80 backdrop-blur-md border rounded-lg p-2.5 flex flex-col pointer-events-auto min-w-[90px] transition-all duration-500 ${isOrbitAchieved ? 'shadow-[0_0_15px_rgba(52,211,153,0.15)] border-emerald-500/40' : 'border-slate-600/30 shadow-2xl'}`}>
-                        <span className={`text-[9px] font-mono mb-0.5 ${isOrbitAchieved ? 'text-emerald-500 font-bold' : 'text-slate-400'}`}>
-                          {isOrbitAchieved ? 'ORBITAL VEL' : 'EST. VELOCITY'}
+                      <div className={`bg-[#091321]/80 backdrop-blur-md border rounded-lg p-2.5 flex flex-col pointer-events-auto min-w-[90px] transition-all duration-500 ${isOrbitAchieved && flightView === 'global' ? 'shadow-[0_0_15px_rgba(52,211,153,0.15)] border-emerald-500/40' : 'border-slate-600/30 shadow-2xl'}`}>
+                        <span className={`text-[9px] font-mono mb-0.5 ${isOrbitAchieved && flightView === 'global' ? 'text-emerald-500 font-bold' : 'text-slate-400'}`}>
+                          {isOrbitAchieved && flightView === 'global' ? 'ORBITAL VEL' : 'EST. VELOCITY'}
                         </span>
-                        <span className={`text-lg font-bold font-mono transition-colors duration-500 ${isOrbitAchieved ? 'text-emerald-400' : 'text-fuchsia-400'}`}>
+                        <span className={`text-lg font-bold font-mono transition-colors duration-500 ${isOrbitAchieved && flightView === 'global' ? 'text-emerald-400' : 'text-fuchsia-400'}`}>
                           {currentVel.toLocaleString()} <span className="text-xs opacity-70">km/h</span>
                         </span>
                       </div>
 
-                      {isOrbitAchieved && (
+                      {isOrbitAchieved && flightView === 'global' && (
                         <div className="bg-[#091321]/90 backdrop-blur-md border border-emerald-500/50 rounded-lg p-2.5 flex flex-col pointer-events-auto min-w-[90px] shadow-[0_0_15px_rgba(52,211,153,0.2)] animate-pulse">
                           <span className="text-[9px] text-emerald-500 font-bold font-mono mb-0.5">ORBIT PERIOD</span>
                           <span className="text-lg font-bold text-emerald-400 font-mono">94 <span className="text-xs opacity-70">m</span></span>
