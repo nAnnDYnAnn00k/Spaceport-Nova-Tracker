@@ -713,11 +713,12 @@
         renderer.domElement.style.touchAction = 'none';
         currentContainer.appendChild(renderer.domElement);
 
-        // Native OrbitControls for seamless manual swipe pacing
+        // Controls are always enabled to restore idle free-look
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan = false;
-        controls.minDistance = 2; // Allow zooming right up to the rocket
+        controls.enableRotate = true; 
+        controls.minDistance = 2; 
         controls.maxDistance = 100;
 
         const earthGroup = new THREE.Group();
@@ -802,7 +803,6 @@
         orbitLine.computeLineDistances();
         orbitGroup.add(orbitLine);
 
-        // Rocket tracking pivot (Orbits the earth without pitching down)
         const rocketPivot = new THREE.Group();
         orbitGroup.add(rocketPivot);
 
@@ -810,14 +810,13 @@
         const rocketMesh = new THREE.Mesh(rocketGeo, new THREE.MeshBasicMaterial({ color: 0x22d3ee }));
         rocketPivot.add(rocketMesh);
 
-        // Ground Track Shadow
         const shadowGeo = new THREE.SphereGeometry(0.15, 8, 8);
         const shadowMat = new THREE.MeshBasicMaterial({ color: 0xf472b6 }); 
         const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
         shadowMesh.position.set(0, 0, earthRadius + 0.05); 
         rocketPivot.add(shadowMesh);
 
-        // Initial Cinematic Camera Setup
+        // Standard wide cinematic default
         camera.position.set(-50, 45, 35);
         controls.target.set(0, 0, 0);
 
@@ -836,8 +835,7 @@
         const animate = () => {
           frameId = requestAnimationFrame(animate);
           
-          // Natural idle rotation continues endlessly
-          earthGroup.rotation.y += 0.0005;
+          earthGroup.rotation.y += 0.0005; // Idle spinning
           
           if (sceneRef.current.rocketPivot) {
              const t = Math.max(0, Math.min(1, progressRef.current / 100));
@@ -852,64 +850,59 @@
              } else {
                sceneRef.current.autoOrbitAngle += 0.0025;
                rocketPivot.rotation.x = sceneRef.current.autoOrbitAngle;
-               rocketMesh.position.set(0, 0, earthRadius + 3);
+               rocketMesh.position.set(0, 0, orbitRadius);
                rocketMesh.rotation.x = Math.PI; 
              }
 
-             // Force matrix recalculations so vectors are exact
              rocketPivot.updateMatrixWorld(true);
              rocketMesh.updateMatrixWorld(true);
              const currentRocketPos = new THREE.Vector3();
              rocketMesh.getWorldPosition(currentRocketPos);
 
-             // Detect Transitions between Earth and Orbit tracking
              if (sceneRef.current.lastT < 1 && t >= 1) sceneRef.current.isTransitioning = true;
              if (sceneRef.current.lastT >= 1 && t < 1) sceneRef.current.isTransitioning = true;
 
+             // Hard Reset from orbital view back to standard view
+             if (t === 0 && sceneRef.current.lastT > 0) {
+                 sceneRef.current.isTransitioning = true;
+             }
+
              if (t < 1) {
-                 // 1. ASCENT: Cinematic View (Frozen, viewing rotating Earth)
-                 controls.enableRotate = false;
-                 
-                 // Restore standard Up-Vector
+                 // ASCENT & IDLE: Look at the Earth, standard dragging restored
                  camera.up.lerp(new THREE.Vector3(0, 1, 0), 0.1);
-                 controls.maxPolarAngle = Math.PI / 2;
-                 
+                 controls.maxPolarAngle = Math.PI / 2 - 0.05; // Lock above ground
+
                  if (sceneRef.current.isTransitioning) {
-                     camera.position.lerp(new THREE.Vector3(-50, 45, 35), 0.05);
                      controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
-                     if (camera.position.distanceTo(new THREE.Vector3(-50, 45, 35)) < 1) {
+                     camera.position.lerp(new THREE.Vector3(-50, 45, 35), 0.05);
+                     
+                     if (controls.target.distanceTo(new THREE.Vector3(0, 0, 0)) < 0.5) {
                          sceneRef.current.isTransitioning = false;
                      }
-                 } else {
-                     camera.position.lerp(new THREE.Vector3(-50, 45, 35), 0.03);
-                     controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.03);
                  }
              } else {
-                 // 2. ORBIT: Drone Follow Mode
-                 controls.enableRotate = true;
-                 
-                 // Strict Axis Lock: Map the camera's vertical orientation to the Rocket's position over the globe
+                 // ORBITAL: Track the rocket
                  const rocketUp = currentRocketPos.clone().normalize();
                  camera.up.lerp(rocketUp, 0.1); 
                  
-                 // Mathematical Horizon clamp: Physically impossible to pull the camera below the rocket into the Earth
+                 // Anti-Clip Horizon Clamp
                  controls.maxPolarAngle = Math.PI / 2.1; 
                  
                  if (sceneRef.current.isTransitioning) {
-                     // Cinematic Swoop In (5 units behind, 4.5 units above relative to Earth core)
-                     const idealCamLocal = new THREE.Vector3(0, 5, earthRadius + 4.5); 
+                     // Top-Down default swoop (Slightly behind to avoid mathematical lock)
+                     const idealCamLocal = new THREE.Vector3(0, -3, earthRadius + 18); 
                      const idealCamWorld = rocketPivot.localToWorld(idealCamLocal);
                      
                      camera.position.lerp(idealCamWorld, 0.04);
                      controls.target.lerp(currentRocketPos, 0.04);
                      
-                     if (controls.target.distanceTo(currentRocketPos) < 0.2) {
+                     if (controls.target.distanceTo(currentRocketPos) < 0.5 && camera.position.distanceTo(idealCamWorld) < 1.0) {
                          sceneRef.current.isTransitioning = false;
                          rocketPivot.updateMatrixWorld(true);
                          sceneRef.current.camLocalPos = rocketPivot.worldToLocal(camera.position.clone());
                      }
                  } else {
-                     // True Orbit Pacing: camera follows the un-pitched orbital pivot seamlessly
+                     // Track stored camera swipe offset relative to moving rocket
                      if (sceneRef.current.camLocalPos) {
                          const targetCamWorld = rocketPivot.localToWorld(sceneRef.current.camLocalPos.clone());
                          camera.position.copy(targetCamWorld);
@@ -921,16 +914,16 @@
              sceneRef.current.lastT = t;
           }
           
-          controls.update(); // Process manual user swiping over our new target
+          controls.update(); 
 
-          // Save manual camera swipes back into local pivot memory for the next frame
+          // Save custom swipe offset
           const tCheck = Math.max(0, Math.min(1, progressRef.current / 100));
           if (tCheck >= 1 && !sceneRef.current.isTransitioning && sceneRef.current.rocketPivot) {
               sceneRef.current.rocketPivot.updateMatrixWorld(true);
               sceneRef.current.camLocalPos = sceneRef.current.rocketPivot.worldToLocal(camera.position.clone());
           }
 
-          // Anti-Clip Safety: Absolute glass floor above the Earth's crust
+          // Anti-Clip Floor Safety Layer
           const minCamRadius = 25.5; 
           if (camera.position.length() < minCamRadius) {
               camera.position.copy(camera.position.clone().normalize().multiplyScalar(minCamRadius));
