@@ -124,6 +124,7 @@
       };
     };
 
+    // --- HIGH-RES 3D MASTER PLAN VIEWER ---
     function EnhancedThreeViewer({ year }) {
       const mountRef = useRef(null);
       const phasesRef = useRef({});
@@ -692,6 +693,7 @@
       const progressRef = useRef(progress);
 
       useEffect(() => { progressRef.current = progress; }, [progress]);
+      useEffect(() => { sceneRef.current.isFlightPlaying = isFlightPlaying; }, [isFlightPlaying]);
 
       useEffect(() => {
         const container = mountRef.current;
@@ -712,14 +714,14 @@
         renderer.domElement.style.touchAction = 'none';
         currentContainer.appendChild(renderer.domElement);
 
-        // Native OrbitControls restored for flawless manual pacing and unlimited zoom
+        // Native OrbitControls restored for flawless manual pacing, free look, and unlimited zoom
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan = false;
         controls.enableRotate = true; 
         controls.enableZoom = true;
         controls.minDistance = 2; 
-        controls.maxDistance = 1000; // Allows extreme zooming out
+        controls.maxDistance = 1000; 
 
         const earthGroup = new THREE.Group();
         scene.add(earthGroup);
@@ -829,7 +831,8 @@
           padPos,
           lastT: 0,
           isTransitioning: false,
-          lastRocketMatrixWorld: null
+          lastRocketMatrixWorld: null,
+          isFlightPlaying: isFlightPlaying
         };
 
         // Break transition smoothly if the user interacts during a swoop
@@ -844,7 +847,7 @@
         const animate = () => {
           frameId = requestAnimationFrame(animate);
           
-          earthGroup.rotation.y += 0.0005; // Idle spinning
+          earthGroup.rotation.y += 0.0005; // Idle spinning perfectly intact
           
           if (sceneRef.current.rocketPivot) {
              const t = Math.max(0, Math.min(1, progressRef.current / 100));
@@ -857,7 +860,9 @@
                rocketMesh.rotation.x = (Math.PI / 2) + (t * (Math.PI / 2));
                sceneRef.current.autoOrbitAngle = insertionAngle;
              } else {
-               sceneRef.current.autoOrbitAngle += 0.0025; // Continuous orbit
+               if (sceneRef.current.isFlightPlaying) {
+                   sceneRef.current.autoOrbitAngle += 0.0025; // Continuous orbit ONLY when playing
+               }
                rocketPivot.rotation.x = sceneRef.current.autoOrbitAngle;
                rocketMesh.position.set(0, 0, orbitRadius);
                rocketMesh.rotation.x = Math.PI; 
@@ -879,9 +884,9 @@
              if (t === 0 && sceneRef.current.lastT > 0) sceneRef.current.isTransitioning = true;
 
              if (t < 1) {
-                 // ASCENT & IDLE: Look at the Earth, standard free-look active
+                 // ASCENT & IDLE: Look at the Earth, standard dragging and full free-look active
                  camera.up.lerp(new THREE.Vector3(0, 1, 0), 0.1);
-                 controls.maxPolarAngle = Math.PI / 2 - 0.05; // Prevent clipping underground
+                 controls.maxPolarAngle = Math.PI / 2 - 0.05;
 
                  if (sceneRef.current.isTransitioning) {
                      controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
@@ -900,21 +905,21 @@
              } else {
                  // ORBITAL: Track the rocket perfectly
                  
-                 // Bind the camera ceiling directly to the rocket's vertical axis
+                 // Anti-Clip & True Alignment: Bind the camera ceiling directly to the rocket's vertical axis
                  const rocketUp = currentRocketPos.clone().normalize();
-                 camera.up.lerp(rocketUp, 0.1); 
+                 camera.up.copy(rocketUp); 
                  
-                 // Anti-Clip Horizon Clamp: Full free-look dome OVER the rocket, but completely prevents clipping beneath it
-                 controls.maxPolarAngle = Math.PI / 2.1; 
+                 // Mathematical Horizon clamp: Prevents rotating camera below the rocket
+                 controls.maxPolarAngle = Math.PI / 4; 
                  
                  if (sceneRef.current.isTransitioning) {
                      // Top-Down default swoop, 100% further away (Radius 55 instead of 28)
-                     // -2 offset on the Y axis prevents OrbitControls gimbal lock panic when looking exactly straight down
-                     const idealCamLocal = new THREE.Vector3(0, -2, 55); 
+                     // -5 offset on the Y axis prevents OrbitControls gimbal lock panic when looking exactly straight down
+                     const idealCamLocal = new THREE.Vector3(0, -5, earthRadius + 30); 
                      const idealCamWorld = rocketPivot.localToWorld(idealCamLocal);
                      
-                     camera.position.lerp(idealCamWorld, 0.04);
-                     controls.target.lerp(currentRocketPos, 0.04);
+                     camera.position.lerp(idealCamWorld, 0.05);
+                     controls.target.lerp(currentRocketPos, 0.05);
                      
                      if (controls.target.distanceTo(currentRocketPos) < 0.5 && camera.position.distanceTo(idealCamWorld) < 1.0) {
                          sceneRef.current.isTransitioning = false;
@@ -936,7 +941,7 @@
           controls.update(); 
 
           // Mathematical glass floor over the Earth's crust
-          const minCamRadius = 26.0; 
+          const minCamRadius = 25.5; 
           if (camera.position.length() < minCamRadius) {
               camera.position.copy(camera.position.clone().normalize().multiplyScalar(minCamRadius));
           }
@@ -1055,16 +1060,19 @@
         if (isFlightPlaying) {
           interval = setInterval(() => {
             setFlightProgress(prev => {
-              if (prev >= 100) {
-                // Remove the automatic stop at 100%, allow infinite orbit
+              if (prev >= 100 && isSuborbital) {
+                setIsFlightPlaying(false);
                 return 100;
+              } else if (prev >= 100) {
+                // Orbital: keep slider at 100, logic reads `isFlightPlaying` directly
+                return 100; 
               }
               return prev + 0.5;
             });
           }, 50); 
         }
         return () => clearInterval(interval);
-      }, [isFlightPlaying]);
+      }, [isFlightPlaying, isSuborbital]);
 
       const requestGPS = () => {
         if (!navigator.geolocation) {
