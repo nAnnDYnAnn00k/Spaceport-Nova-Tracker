@@ -349,12 +349,11 @@
           }
           
           scene.traverse((object) => {
-            if (object.isMesh || object.isLine) {
-              if (object.geometry) object.geometry.dispose();
-              if (object.material) {
-                if (Array.isArray(object.material)) object.material.forEach(m => m.dispose());
-                else object.material.dispose();
-              }
+            if (object.geometry) object.geometry.dispose();
+            if (object.material) {
+              if (object.material.map) object.material.map.dispose();
+              if (Array.isArray(object.material)) object.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+              else object.material.dispose();
             }
           });
           
@@ -714,12 +713,12 @@
         renderer.domElement.style.touchAction = 'none';
         currentContainer.appendChild(renderer.domElement);
 
-        // Native OrbitControls re-enabled for free-look around the rocket
+        // Native OrbitControls restored for flawless manual pacing sweeps
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan = false;
         controls.enableRotate = true; 
-        controls.minDistance = 2; // Allows zooming close to the rocket
+        controls.minDistance = 2; 
         controls.maxDistance = 100;
 
         const earthGroup = new THREE.Group();
@@ -755,7 +754,6 @@
         equator.rotation.x = Math.PI / 2;
         earthGroup.add(equator);
 
-        // Calculate original static pad position
         const latRad = 45.3056 * (Math.PI / 180);
         const lonRad = -60.9814 * (Math.PI / 180);
         const cx = earthRadius * Math.cos(latRad) * Math.sin(lonRad);
@@ -821,8 +819,7 @@
 
         // Set initial true-cinematic camera position
         camera.position.set(-50, 45, 35);
-        controls.target.copy(padPos);
-        camera.lookAt(padPos);
+        controls.target.set(0, 0, 0);
 
         sceneRef.current = { 
           rocketPivot, 
@@ -832,21 +829,22 @@
           earthRadius,
           padPos,
           lastRocketPos: null,
-          lastT: 0
+          lastT: 0,
+          isTransitioning: false,
+          camLocalPos: null
         };
 
         let frameId;
         const animate = () => {
           frameId = requestAnimationFrame(animate);
           
-          // Natural idle rotation continues regardless of launch state
+          // Natural idle rotation continues endlessly
           earthGroup.rotation.y += 0.0005;
           
           if (sceneRef.current.rocketPivot) {
              const t = Math.max(0, Math.min(1, progressRef.current / 100));
              const { rocketPivot, rocketMesh, insertionAngle, earthRadius, padPos } = sceneRef.current;
              
-             // Move the rocket geometry
              if (t < 1) {
                rocketPivot.rotation.x = t * insertionAngle;
                const alt = earthRadius + Math.sin(t * Math.PI / 2) * 3;
@@ -856,11 +854,11 @@
              } else {
                sceneRef.current.autoOrbitAngle += 0.0025;
                rocketPivot.rotation.x = sceneRef.current.autoOrbitAngle;
-               rocketMesh.position.set(0, 0, earthRadius + 3);
+               rocketMesh.position.set(0, 0, orbitRadius);
                rocketMesh.rotation.x = Math.PI; 
              }
 
-             // Force matrix recalculation to prevent camera vibration
+             // Force matrix recalculation to prevent camera lag
              rocketMesh.updateMatrixWorld(true);
              const currentRocketPos = new THREE.Vector3();
              rocketMesh.getWorldPosition(currentRocketPos);
@@ -869,35 +867,65 @@
                  sceneRef.current.lastRocketPos = currentRocketPos.clone();
              }
 
-             // TRIGGER CAMERA RESET: When user hits Play or scrubs back to start (t hits 0)
+             // Detect Transitions between Earth and Orbit states
+             if (sceneRef.current.lastT < 1 && t === 1) sceneRef.current.isTransitioning = true;
+             if (sceneRef.current.lastT >= 1 && t < 1) sceneRef.current.isTransitioning = true;
+
+             // HARD RESET (Play from 0%): Gracefully return to exact cinematic start point relative to spinning Earth
              if (t === 0 && sceneRef.current.lastT !== 0) {
-                 // Calculate original framing relative to the currently spun Earth coordinates
                  const relativeOffset = new THREE.Vector3(-50, 45, 35).sub(padPos);
                  relativeOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), earthGroup.rotation.y);
-                 
-                 // Snap camera and target back to cinematic view seamlessly
                  camera.position.copy(currentRocketPos).add(relativeOffset);
                  controls.target.copy(currentRocketPos);
+                 sceneRef.current.hasUserDraggedCamera = false;
              } else {
-                 // DELTA TRACKING: Move the camera exactly the same distance the rocket moved.
-                 // This keeps the user's manual viewing angle perfectly intact while orbiting!
-                 const delta = currentRocketPos.clone().sub(sceneRef.current.lastRocketPos);
-                 camera.position.add(delta);
-                 controls.target.copy(currentRocketPos);
+                 if (t < 1) {
+                     // ASCENT: Target stays locked on Earth, user can orbit globe manually
+                     if (sceneRef.current.isTransitioning) {
+                         controls.target.lerp(new THREE.Vector3(0,0,0), 0.05);
+                         if (controls.target.distanceTo(new THREE.Vector3(0,0,0)) < 0.1) {
+                             sceneRef.current.isTransitioning = false;
+                         }
+                     }
+                 } else {
+                     // ORBIT: Target locks to Rocket
+                     if (sceneRef.current.isTransitioning) {
+                         controls.target.lerp(currentRocketPos, 0.05);
+                         const delta = currentRocketPos.clone().sub(sceneRef.current.lastRocketPos);
+                         camera.position.add(delta);
+                         if (controls.target.distanceTo(currentRocketPos) < 0.1) {
+                             sceneRef.current.isTransitioning = false;
+                         }
+                     } else {
+                         // TRUE PACING: Maintains the user's manual orbital drag dynamically 
+                         if (sceneRef.current.camLocalPos) {
+                             const targetCamWorld = rocketMesh.localToWorld(sceneRef.current.camLocalPos.clone());
+                             camera.position.copy(targetCamWorld);
+                             controls.target.copy(currentRocketPos);
+                         }
+                     }
+                 }
              }
 
              sceneRef.current.lastRocketPos = currentRocketPos.clone();
              sceneRef.current.lastT = t;
           }
           
-          controls.update(); // Process any manual user swipes on top of our new target
+          controls.update(); // Process manual camera dragging
 
-          // ANTI-CLIP FLOOR: Prevent camera from moving inside the Earth sphere
+          // ANTI-CLIP FLOOR: Prevents camera from plunging through the Earth's crust
           const minCamRadius = 25.5; 
           if (camera.position.length() < minCamRadius) {
               camera.position.copy(camera.position.clone().normalize().multiplyScalar(minCamRadius));
           }
-          
+
+          // Capture the user's customized orbital view to lock it for the next frame
+          const tCheck = Math.max(0, Math.min(1, progressRef.current / 100));
+          if (tCheck >= 1 && !sceneRef.current.isTransitioning) {
+              sceneRef.current.rocketMesh.updateMatrixWorld(true);
+              sceneRef.current.camLocalPos = sceneRef.current.rocketMesh.worldToLocal(camera.position.clone());
+          }
+
           renderer.render(scene, camera);
         };
         animate();
