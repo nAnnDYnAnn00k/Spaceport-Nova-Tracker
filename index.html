@@ -128,6 +128,7 @@
     function EnhancedThreeViewer({ year }) {
       const mountRef = useRef(null);
       const phasesRef = useRef({});
+      const [isLoading, setIsLoading] = useState(true);
 
       useEffect(() => {
         const container = mountRef.current;
@@ -179,7 +180,14 @@
         const mapUrl = "https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/export?bbox=-61.01,45.29,-60.95,45.32&bboxSR=4326&imageSR=102100&size=1024,1024&format=jpg&f=image";
         const texLoader = new THREE.TextureLoader();
         texLoader.crossOrigin = 'anonymous';
-        const terrainTex = texLoader.load(mapUrl);
+        
+        // Asynchronous loading with completion handlers to clear loading state
+        const terrainTex = texLoader.load(
+          mapUrl,
+          () => { setIsLoading(false); }, // on load
+          undefined,                      // on progress (unsupported for simple cross-origin)
+          () => { setIsLoading(false); }  // on error (failsafe)
+        );
         terrainTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
         const terrainGeo = new THREE.PlaneGeometry(160, 160, 128, 128); 
@@ -449,7 +457,19 @@
         }
       }, [year]);
 
-      return <div ref={mountRef} className="w-full h-[550px]" />;
+      return (
+        <div className="relative w-full h-[550px]">
+          {isLoading && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#091321] rounded-xl pointer-events-none">
+              <span className="text-cyan-400 font-mono text-xs font-bold tracking-[0.2em] mb-4 animate-pulse">LOADING SATELLITE DATA...</span>
+              <div className="w-48 h-1 bg-slate-800 rounded-full overflow-hidden">
+                <div className="w-full h-full bg-cyan-400 rounded-full animate-pulse"></div>
+              </div>
+            </div>
+          )}
+          <div ref={mountRef} className="w-full h-full" />
+        </div>
+      );
     }
 
     function TelemetryArcViewer2D({ rocket, progress, currentAlt, trajData }) {
