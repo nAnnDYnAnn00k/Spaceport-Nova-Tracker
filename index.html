@@ -124,6 +124,40 @@
       };
     };
 
+    // --- REUSABLE FLIGHT SIMULATION ROCKET MESH ---
+    // Modified to use exaggerated UI marker dimensions and self-illuminating materials
+    const createTelemetryRocket = (scale, type) => {
+      const group = new THREE.Group();
+      
+      // BasicMaterials ensure the rocket pops visually against the map without relying on light angles
+      const matBody = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+      const matDark = new THREE.MeshBasicMaterial({ color: 0x1e293b });
+      const matSteel = new THREE.MeshBasicMaterial({ color: 0x94a3b8 });
+      
+      const stage2 = new THREE.Group();
+      // Exaggerate radius (1.5x scale) so the marker thickness is easily visible from far camera distances
+      const nose = new THREE.Mesh(new THREE.ConeGeometry(1.5 * scale, 2.5 * scale, 16), type === 'heavy' ? matDark : matBody);
+      nose.position.y = 2.75 * scale; 
+      stage2.add(nose);
+      
+      const stage1 = new THREE.Group();
+      const core = new THREE.Mesh(new THREE.CylinderGeometry(1.5 * scale, 1.5 * scale, 8 * scale, 16), matBody);
+      core.position.y = -2.5 * scale;
+      
+      const engine = new THREE.Mesh(new THREE.CylinderGeometry(0.8 * scale, 1.2 * scale, 1 * scale, 16), matSteel);
+      engine.position.y = -7 * scale;
+      
+      const plumeMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
+      const plume = new THREE.Mesh(new THREE.ConeGeometry(1.2 * scale, 5 * scale, 16), plumeMat);
+      plume.rotation.x = Math.PI; 
+      plume.position.y = -10 * scale;
+      
+      stage1.add(core, engine, plume);
+      group.add(stage1, stage2);
+      
+      return { group, stage1, stage2, plume };
+    };
+
     // --- HIGH-RES 3D MASTER PLAN VIEWER ---
     function EnhancedThreeViewer({ year }) {
       const mountRef = useRef(null);
@@ -176,17 +210,15 @@
         const matRocketBody = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2 });
         const matRocketDark = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.2 });
 
-        // ArcGIS Real-World GIS Satellite Tile
         const mapUrl = "https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/export?bbox=-61.01,45.29,-60.95,45.32&bboxSR=4326&imageSR=102100&size=1024,1024&format=jpg&f=image";
         const texLoader = new THREE.TextureLoader();
         texLoader.crossOrigin = 'anonymous';
         
-        // Asynchronous loading with completion handlers to clear loading state
         const terrainTex = texLoader.load(
           mapUrl,
-          () => { setIsLoading(false); }, // on load
-          undefined,                      // on progress (unsupported for simple cross-origin)
-          () => { setIsLoading(false); }  // on error (failsafe)
+          () => { setIsLoading(false); }, 
+          undefined,                      
+          () => { setIsLoading(false); }  
         );
         terrainTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
@@ -194,7 +226,6 @@
         terrainGeo.rotateX(-Math.PI / 2);
         const pos = terrainGeo.attributes.position;
         
-        // Exact elevation generation matches physical drop off for realistic placement
         const getElevation = (x, z) => {
           let elev = (Math.sin(x * 0.05) * Math.cos(z * 0.05) * 2);
           if (x > 15) elev -= (x - 15) * 0.15;
@@ -217,12 +248,10 @@
         terrain.receiveShadow = true;
         scene.add(terrain);
 
-        // Coastline-Hugging 355-acre Perimeter Line
         const perimeterCoords = [
           [-45, 55], [15, 55], [28, 25], [30, 5], [26, -15],
           [10, -25], [-10, -28], [-25, -20], [-40, -5], [-45, 55]
         ];
-        // Trace directly above terrain height to prevent clipping
         const perimeterPts = perimeterCoords.map(([px, pz]) => new THREE.Vector3(px, getElevation(px, pz) + 0.3, pz));
         
         const perimeterGeo = new THREE.BufferGeometry().setFromPoints(perimeterPts);
@@ -264,7 +293,6 @@
         const p2030 = new THREE.Group();
         const p2032 = new THREE.Group();
 
-        // SCALED ASSET BUILDERS (Scaled by 75% relative to original footprint)
         const buildHIF = (width, depth) => {
           const group = new THREE.Group();
           const base = new THREE.Mesh(new THREE.BoxGeometry(width, 6, depth), matBuilding);
@@ -358,7 +386,6 @@
           return rGroup;
         };
 
-        // 2024 Phase
         const subPad = buildPadComplex(-35, 10, 0.6, false, "small");
         p2024.add(subPad);
         const dishBase = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 2, 16), matConcrete);
@@ -370,7 +397,6 @@
         dish.position.set(-40, getElevation(-40, 16) + 0.625, 16);
         p2024.add(dishBase, dish);
 
-        // 2026 Phase
         const gate = buildHIF(8, 6); 
         gate.position.set(-40, getElevation(-40, 45), 45);
         gate.rotation.y = Math.PI / 4;
@@ -381,7 +407,6 @@
         hub.castShadow = true; hub.receiveShadow = true;
         p2026.add(hub);
 
-        // 2028 Phase
         const pad1 = buildPadComplex(-5, 15, 1);
         const rocket1 = buildRocket(1);
         rocket1.position.set(-5, getElevation(-5, 15) + 0.25, 15);
@@ -390,7 +415,6 @@
         hif1.position.set(-20, getElevation(-20, 25), 25);
         p2028.add(hif1);
 
-        // 2030 Phase (Pad 2 moved fully inland)
         const pad2 = buildPadComplex(5, 35, 1.2); 
         const rocket2 = buildRocket(1.2);
         rocket2.position.set(5, getElevation(5, 35) + 0.25, 35);
@@ -399,7 +423,6 @@
         hifExt.position.set(-36, getElevation(-36, 25), 25);
         p2030.add(hifExt);
 
-        // 2032 Phase (Pad 3 & 4 moved fully inland)
         const pad3 = buildPadComplex(-20, 0, 1.5); 
         const rocket3 = buildRocket(1.5, "heavy");
         rocket3.position.set(-20, getElevation(-20, 0) + 0.25, 0);
@@ -507,6 +530,11 @@
         rotation = Math.atan2(-tangent.y, tangent.x) * (180 / Math.PI); 
       }
 
+      // Visual Staging & Exhaust calculations
+      const isMeco = t >= trajData.tMeco;
+      const drift = isMeco ? (t - trajData.tMeco) * 150 : 0;
+      const plumePulse = isMeco ? 0 : 0.8 + Math.sin(progress * 0.5) * 0.4;
+
       useEffect(() => {
         if (scrollRef.current) {
           const containerHalfWidth = scrollRef.current.clientWidth / 2;
@@ -564,9 +592,14 @@
                 <text x="0" y="4" fill="#38bdf8" fontSize="12" fontWeight="bold" textAnchor="middle" className="font-mono">{currentAlt} km</text>
               </g>
               
+              {/* Dynamic 2D Stage Separation & Plume */}
               <g transform={`translate(${rocketPx}, ${rocketPy}) rotate(${rotation})`}>
-                <polygon points="-10,-6 14,0 -10,6 -5,0" fill="#22d3ee" />
-                <circle cx="-10" cy="0" r="6" fill="#c026d3" opacity="0.4" />
+                <polygon points="5,-4 16,0 5,4" fill="#f8fafc" />
+                <g transform={`translate(${-drift}, 0)`}>
+                  <polygon points="-8,-4 5,-4 5,4 -8,4" fill="#94a3b8" />
+                  <rect x="-11" y="-2" width="3" height="4" fill="#cbd5e1" />
+                  {!isMeco && <polygon points="-11,-3 -20,0 -11,3" fill="#c026d3" opacity={0.6 * plumePulse} />}
+                </g>
               </g>
             </svg>
           </div>
@@ -621,14 +654,13 @@
         const curveLine = new THREE.Line(lineGeo, lineMat);
         scene.add(curveLine);
 
+        // Increase scale multiplier from 0.1 to 0.15 for better screen presence
         const markerScale = rocket.missionType === 'Suborbital' ? 4 : 40; 
-        const markerGeo = new THREE.ConeGeometry(markerScale * 0.4, markerScale, 16);
-        const markerMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee }); 
-        const marker = new THREE.Mesh(markerGeo, markerMat);
-        marker.rotation.x = Math.PI / 2;
+        const { group: markerMesh, stage1, plume } = createTelemetryRocket(markerScale * 0.15, rocket.missionType === 'heavy' ? 'heavy' : 'medium');
+        markerMesh.rotation.x = Math.PI / 2;
         
         const markerGroup = new THREE.Group();
-        markerGroup.add(marker);
+        markerGroup.add(markerMesh);
         scene.add(markerGroup);
 
         const gridScale = rocket.missionType === 'Suborbital' ? 200 : 4000;
@@ -717,12 +749,27 @@
           scene.add(spriteMeco);
         }
 
-        sceneRef.current = { curve, markerGroup, plumbLine, groundReticle };
+        sceneRef.current = { curve, markerGroup, plumbLine, groundReticle, stage1, plume, tMeco, lastT: 0 };
 
         let frameId;
         const animate = () => {
           frameId = requestAnimationFrame(animate);
           controls.update();
+
+          // Dynamic Physics Engine Event Handling
+          if (sceneRef.current.plume) {
+            const { plume, stage1, tMeco, lastT } = sceneRef.current;
+            if (lastT >= tMeco) {
+              plume.scale.setScalar(0.001); // Instant MECO Engine Cut
+              // Tuned drift distance so the separated booster remains comfortably on-screen
+              stage1.position.y = - (lastT - tMeco) * (rocket.missionType === 'Suborbital' ? 60 : 350); 
+            } else {
+              const p = 0.8 + Math.sin(Date.now() * 0.015) * 0.3; // Engine pulsing
+              plume.scale.setScalar(p);
+              stage1.position.y = 0;
+            }
+          }
+
           renderer.render(scene, camera);
         };
         animate();
@@ -759,6 +806,8 @@
         const { curve, markerGroup, plumbLine, groundReticle } = sceneRef.current;
         if (curve && markerGroup && plumbLine && groundReticle) {
           const t = Math.max(0, Math.min(1, progress / 100));
+          sceneRef.current.lastT = t; 
+
           const position = curve.getPoint(t);
           
           const positions = plumbLine.geometry.attributes.position.array;
@@ -818,17 +867,17 @@
         controls.enableRotate = true; 
         controls.enableZoom = true;
         controls.minDistance = 2; 
-        controls.maxDistance = 250; // REDUCED BY 75% FROM 1000
+        controls.maxDistance = 250; 
 
         // 3. PROXY ORBIT CONTROLS (Used to track user dragging without fighting orbital physics)
         const dummyCamera = new THREE.PerspectiveCamera(45, w / h, 0.1, 10000);
-        dummyCamera.position.set(0, 40, 0); // Start proxy at the "North Pole"
+        dummyCamera.position.set(0, 40, 0); 
         const dummyControls = new THREE.OrbitControls(dummyCamera, renderer.domElement);
         dummyControls.enableDamping = true;
         dummyControls.enablePan = false;
         dummyControls.minDistance = 2; 
-        dummyControls.maxDistance = 250; // REDUCED BY 75% FROM 1000
-        dummyControls.maxPolarAngle = Math.PI / 4; // Absolute 45-degree top-down limit for the proxy
+        dummyControls.maxDistance = 250; 
+        dummyControls.maxPolarAngle = Math.PI / 4; 
 
         const earthGroup = new THREE.Group();
         scene.add(earthGroup);
@@ -909,8 +958,8 @@
         const rocketPivot = new THREE.Group();
         orbitGroup.add(rocketPivot);
 
-        const rocketGeo = new THREE.ConeGeometry(0.375, 1, 8);
-        const rocketMesh = new THREE.Mesh(rocketGeo, new THREE.MeshBasicMaterial({ color: 0x22d3ee }));
+        // Increase scale multiplier from 0.15 to 0.25 for better screen presence
+        const { group: rocketMesh, stage1, plume } = createTelemetryRocket(0.25, rocket.missionType === 'heavy' ? 'heavy' : 'medium');
         rocketPivot.add(rocketMesh);
 
         const shadowGeo = new THREE.SphereGeometry(0.15, 8, 8);
@@ -919,13 +968,17 @@
         shadowMesh.position.set(0, 0, earthRadius + 0.05); 
         rocketPivot.add(shadowMesh);
 
-        // Standard wide cinematic default
         camera.position.set(-50, 45, 35);
         controls.target.set(0, 0, 0);
+
+        const tMeco = rocket.missionType === 'Suborbital' ? 0.5 : getTrajectoryData(false).tMeco;
 
         sceneRef.current = { 
           rocketPivot, 
           rocketMesh, 
+          stage1, 
+          plume, 
+          tMeco,
           insertionAngle, 
           autoOrbitAngle: insertionAngle, 
           earthRadius,
@@ -943,13 +996,23 @@
         let frameId;
         const animate = () => {
           frameId = requestAnimationFrame(animate);
-          earthGroup.rotation.y += 0.0005; // Universal idle spin
+          earthGroup.rotation.y += 0.0005; 
           
           if (sceneRef.current.rocketPivot) {
              const t = Math.max(0, Math.min(1, progressRef.current / 100));
-             const { rocketPivot, rocketMesh, insertionAngle, earthRadius, padPos } = sceneRef.current;
+             const { rocketPivot, rocketMesh, insertionAngle, earthRadius, padPos, plume, stage1, tMeco, lastT } = sceneRef.current;
              
-             // Physics Engine
+             // Dynamic Staging Evaluation
+             if (lastT >= tMeco) {
+               plume.scale.setScalar(0.001);
+               // Reduced separation velocity to prevent Earth clipping
+               stage1.position.y = - (lastT - tMeco) * 8; 
+             } else {
+               const p = 0.8 + Math.sin(Date.now() * 0.015) * 0.3;
+               plume.scale.setScalar(p);
+               stage1.position.y = 0;
+             }
+
              if (t < 1) {
                rocketPivot.rotation.x = t * insertionAngle;
                const alt = earthRadius + Math.sin(t * Math.PI / 2) * 3;
@@ -958,7 +1021,7 @@
                sceneRef.current.autoOrbitAngle = insertionAngle;
              } else {
                if (sceneRef.current.isFlightPlaying) {
-                   sceneRef.current.autoOrbitAngle += 0.0025; // Universal Pause Support
+                   sceneRef.current.autoOrbitAngle += 0.0025; 
                }
                rocketPivot.rotation.x = sceneRef.current.autoOrbitAngle;
                rocketMesh.position.set(0, 0, orbitRadius);
@@ -975,7 +1038,6 @@
              if (t === 0 && sceneRef.current.lastT > 0) sceneRef.current.isTransitioning = true;
 
              if (t < 1) {
-                 // ASCENT / IDLE: Earth Controls Active. Free-look and drag anywhere.
                  controls.enabled = true;
                  dummyControls.enabled = false;
                  
@@ -983,7 +1045,6 @@
                  controls.maxPolarAngle = Math.PI / 2 - 0.05;
 
                  if (sceneRef.current.isTransitioning) {
-                     // Smoothly return to standard view relative to spun Earth
                      const relativeOffset = new THREE.Vector3(-50, 45, 35).sub(padPos);
                      relativeOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), earthGroup.rotation.y);
                      
@@ -996,17 +1057,14 @@
                      controls.update(); 
                  }
              } else {
-                 // ORBITAL: Proxy Camera Active. Real Earth controls frozen.
                  controls.enabled = false;
                  dummyControls.enabled = true;
-                 dummyControls.update(); // Process user dragging the proxy camera
+                 dummyControls.update(); 
                  
-                 // Map Proxy to Rocket Airspace (Proxy Y = Rocket Z, Proxy Z = Rocket -Y)
                  const dummyPos = dummyCamera.position;
                  const localOffset = new THREE.Vector3(dummyPos.x, -dummyPos.z, dummyPos.y);
                  const targetCamWorld = rocketPivot.localToWorld(localOffset);
                  
-                 // Bind camera ceiling to Rocket Vertical Axis
                  const upVector = rocketPivot.localToWorld(new THREE.Vector3(0,0,1)).sub(rocketPivot.getWorldPosition(new THREE.Vector3())).normalize();
 
                  if (sceneRef.current.isTransitioning) {
@@ -1019,7 +1077,6 @@
                      
                      if (camera.position.distanceTo(targetCamWorld) < 1.0) sceneRef.current.isTransitioning = false;
                  } else {
-                     // 100% Pacing without Gimbal Lock
                      camera.position.copy(targetCamWorld);
                      camera.up.copy(upVector);
                      controls.target.copy(currentRocketPos);
@@ -1029,7 +1086,6 @@
              sceneRef.current.lastT = t;
           }
           
-          // Anti-Clip Glass Floor Safety
           const minCamRadius = 25.5; 
           if (camera.position.length() < minCamRadius) {
               camera.position.copy(camera.position.clone().normalize().multiplyScalar(minCamRadius));
@@ -1124,9 +1180,19 @@
       const radii = calculateRadii(activeRocket.propellantTons);
       const status = getSafetyStatus(distanceKm, radii);
       const canvasRef = useRef(null);
+      
+      // Hook integrated to manage seamless auto-switch to Global Orbit mode
       const hasAutoSwitched = useRef(false);
-
       const isSuborbital = activeRocket.missionType === 'Suborbital';
+      const isOrbitAchieved = flightProgress >= 100 && !isSuborbital;
+
+      useEffect(() => {
+        if (flightProgress < 100) hasAutoSwitched.current = false;
+        if (isOrbitAchieved && isFlightPlaying && !hasAutoSwitched.current) {
+          setFlightView('global');
+          hasAutoSwitched.current = true;
+        }
+      }, [flightProgress, isOrbitAchieved, isFlightPlaying]);
 
       useEffect(() => {
         if (isSuborbital && flightView === 'global') {
@@ -1142,16 +1208,6 @@
       const currentVel = isSuborbital
         ? Math.round(Math.abs(Math.cos(t * Math.PI)) * 6000) 
         : Math.round(t * 28000); 
-
-      const isOrbitAchieved = flightProgress >= 100 && !isSuborbital;
-
-      useEffect(() => {
-        if (flightProgress < 100) hasAutoSwitched.current = false;
-        if (isOrbitAchieved && isFlightPlaying && !hasAutoSwitched.current) {
-          setFlightView('global');
-          hasAutoSwitched.current = true;
-        }
-      }, [flightProgress, isOrbitAchieved, isFlightPlaying]);
 
       useEffect(() => {
         let interval = null;
