@@ -532,7 +532,10 @@
 
       // Visual Staging & Exhaust calculations
       const isMeco = t >= trajData.tMeco;
-      const drift = isMeco ? (t - trajData.tMeco) * 150 : 0;
+      const dt = isMeco ? t - trajData.tMeco : 0;
+      const driftX = isMeco ? dt * 250 : 0;
+      const driftY = isMeco ? dt * dt * 2000 : 0; // Parabolic drop towards Y-bottom (Earth)
+      const boosterVisible = dt < 0.15; // Splashdown / Disappear threshold
       const plumePulse = isMeco ? 0 : 0.8 + Math.sin(progress * 0.5) * 0.4;
 
       useEffect(() => {
@@ -595,11 +598,13 @@
               {/* Dynamic 2D Stage Separation & Plume */}
               <g transform={`translate(${rocketPx}, ${rocketPy}) rotate(${rotation})`}>
                 <polygon points="5,-4 16,0 5,4" fill="#f8fafc" />
-                <g transform={`translate(${-drift}, 0)`}>
-                  <polygon points="-8,-4 5,-4 5,4 -8,4" fill="#94a3b8" />
-                  <rect x="-11" y="-2" width="3" height="4" fill="#cbd5e1" />
-                  {!isMeco && <polygon points="-11,-3 -20,0 -11,3" fill="#c026d3" opacity={0.6 * plumePulse} />}
-                </g>
+                {boosterVisible && (
+                  <g transform={`translate(${-driftX}, ${driftY})`}>
+                    <polygon points="-8,-4 5,-4 5,4 -8,4" fill="#94a3b8" />
+                    <rect x="-11" y="-2" width="3" height="4" fill="#cbd5e1" />
+                    {!isMeco && <polygon points="-11,-3 -20,0 -11,3" fill="#c026d3" opacity={0.6 * plumePulse} />}
+                  </g>
+                )}
               </g>
             </svg>
           </div>
@@ -760,13 +765,18 @@
           if (sceneRef.current.plume) {
             const { plume, stage1, tMeco, lastT } = sceneRef.current;
             if (lastT >= tMeco) {
+              const dt = lastT - tMeco;
               plume.scale.setScalar(0.001); // Instant MECO Engine Cut
-              // Tuned drift distance so the separated booster remains comfortably on-screen
-              stage1.position.y = - (lastT - tMeco) * (rocket.missionType === 'Suborbital' ? 60 : 350); 
+              
+              // Backward separation and parabolic drop
+              stage1.position.y = -dt * (rocket.missionType === 'Suborbital' ? 80 : 300); 
+              stage1.position.z = dt * dt * (rocket.missionType === 'Suborbital' ? 400 : 1500); 
+              stage1.visible = dt < 0.15; // Splashdown and disappear
             } else {
               const p = 0.8 + Math.sin(Date.now() * 0.015) * 0.3; // Engine pulsing
               plume.scale.setScalar(p);
-              stage1.position.y = 0;
+              stage1.position.set(0, 0, 0);
+              stage1.visible = true;
             }
           }
 
@@ -1004,13 +1014,17 @@
              
              // Dynamic Staging Evaluation
              if (lastT >= tMeco) {
+               const dt = lastT - tMeco;
                plume.scale.setScalar(0.001);
-               // Reduced separation velocity to prevent Earth clipping
-               stage1.position.y = - (lastT - tMeco) * 8; 
+               // Backward separation and parabolic drop toward Earth
+               stage1.position.y = -dt * 15; 
+               stage1.position.z = -dt * dt * 100; 
+               stage1.visible = dt < 0.12; // Splashdown and disappear
              } else {
                const p = 0.8 + Math.sin(Date.now() * 0.015) * 0.3;
                plume.scale.setScalar(p);
-               stage1.position.y = 0;
+               stage1.position.set(0, 0, 0);
+               stage1.visible = true;
              }
 
              if (t < 1) {
