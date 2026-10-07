@@ -1124,6 +1124,7 @@
       const radii = calculateRadii(activeRocket.propellantTons);
       const status = getSafetyStatus(distanceKm, radii);
       const canvasRef = useRef(null);
+      const hasAutoSwitched = useRef(false);
 
       const isSuborbital = activeRocket.missionType === 'Suborbital';
 
@@ -1143,6 +1144,14 @@
         : Math.round(t * 28000); 
 
       const isOrbitAchieved = flightProgress >= 100 && !isSuborbital;
+
+      useEffect(() => {
+        if (flightProgress < 100) hasAutoSwitched.current = false;
+        if (isOrbitAchieved && isFlightPlaying && !hasAutoSwitched.current) {
+          setFlightView('global');
+          hasAutoSwitched.current = true;
+        }
+      }, [flightProgress, isOrbitAchieved, isFlightPlaying]);
 
       useEffect(() => {
         let interval = null;
