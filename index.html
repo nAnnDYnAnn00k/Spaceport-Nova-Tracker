@@ -493,6 +493,11 @@
                  ls.active = false;
                  r.position.y = r.userData.initialY;
                  r.userData.plume.visible = false;
+
+                 // Post-launch camera reset
+                 controls.target.set(0, 0, 0);
+                 camera.position.set(55, 45, 55);
+
                  onHandoffRef.current(ls.rocketId);
               }
             }
@@ -578,6 +583,10 @@
             </select>
             <button 
               onClick={() => {
+                 if (selectedMission === 'spectrum-1' && year < 2028) setBuildYear(2028);
+                 if (selectedMission === 'aurora-8' && year < 2030) setBuildYear(2030);
+                 if (selectedMission === 'c4m-baseline' && year < 2032) setBuildYear(2032);
+
                  if (!launchStateRef.current.active) {
                    launchStateRef.current = { active: true, time: 0, rocketId: selectedMission };
                  }
@@ -757,6 +766,7 @@
         const curveLine = new THREE.Line(lineGeo, lineMat);
         scene.add(curveLine);
 
+        // Increase scale multiplier from 0.1 to 0.15 for better screen presence
         const markerScale = rocket.missionType === 'Suborbital' ? 4 : 40; 
         const { group: markerMesh, stage1, plume } = createTelemetryRocket(markerScale * 0.15, rocket.missionType === 'heavy' ? 'heavy' : 'medium');
         markerMesh.rotation.x = Math.PI / 2;
@@ -863,7 +873,7 @@
             const { plume, stage1, tMeco, lastT } = sceneRef.current;
             if (lastT >= tMeco) {
               const dt = lastT - tMeco;
-              plume.scale.setScalar(0.001); 
+              plume.scale.setScalar(0.001); // Instant MECO Engine Cut
               
               // Backward separation and parabolic drop
               stage1.position.y = -dt * (rocket.missionType === 'Suborbital' ? 80 : 300); 
@@ -1065,6 +1075,7 @@
         const rocketPivot = new THREE.Group();
         orbitGroup.add(rocketPivot);
 
+        // Increase scale multiplier from 0.15 to 0.25 for better screen presence
         const { group: rocketMesh, stage1, plume } = createTelemetryRocket(0.25, rocket.missionType === 'heavy' ? 'heavy' : 'medium');
         rocketPivot.add(rocketMesh);
 
@@ -1295,7 +1306,6 @@
       const isSuborbital = activeRocket.missionType === 'Suborbital';
       const isOrbitAchieved = flightProgress >= 100 && !isSuborbital;
 
-      // Extract strictly orbital rockets for the new Map HUD
       const orbitalRockets = useMemo(() => ROCKET_MANIFEST.filter(r => r.missionType === 'Orbital' || r.missionType === 'Medium Lift'), []);
 
       useEffect(() => {
