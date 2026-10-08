@@ -124,18 +124,14 @@
       };
     };
 
-    // --- REUSABLE FLIGHT SIMULATION ROCKET MESH ---
-    // Modified to use exaggerated UI marker dimensions and self-illuminating materials
     const createTelemetryRocket = (scale, type) => {
       const group = new THREE.Group();
       
-      // BasicMaterials ensure the rocket pops visually against the map without relying on light angles
       const matBody = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
       const matDark = new THREE.MeshBasicMaterial({ color: 0x1e293b });
       const matSteel = new THREE.MeshBasicMaterial({ color: 0x94a3b8 });
       
       const stage2 = new THREE.Group();
-      // Exaggerate radius (1.5x scale) so the marker thickness is easily visible from far camera distances
       const nose = new THREE.Mesh(new THREE.ConeGeometry(1.5 * scale, 2.5 * scale, 16), type === 'heavy' ? matDark : matBody);
       nose.position.y = 2.75 * scale; 
       stage2.add(nose);
@@ -159,10 +155,24 @@
     };
 
     // --- HIGH-RES 3D MASTER PLAN VIEWER ---
-    function EnhancedThreeViewer({ year }) {
+    function EnhancedThreeViewer({ year, setBuildYear, orbitalRockets, onHandoff }) {
       const mountRef = useRef(null);
       const phasesRef = useRef({});
+      const sceneRocketsRef = useRef({});
+      const launchStateRef = useRef({ active: false, time: 0, rocketId: null });
+      const cameraLerpRef = useRef(null);
+      const onHandoffRef = useRef(onHandoff);
+
       const [isLoading, setIsLoading] = useState(true);
+      const [selectedMission, setSelectedMission] = useState(orbitalRockets[0].id);
+
+      useEffect(() => { onHandoffRef.current = onHandoff; }, [onHandoff]);
+
+      useEffect(() => {
+        if (sceneRocketsRef.current && sceneRocketsRef.current[selectedMission]) {
+          cameraLerpRef.current = sceneRocketsRef.current[selectedMission].position.clone();
+        }
+      }, [selectedMission]);
 
       useEffect(() => {
         const container = mountRef.current;
@@ -365,7 +375,7 @@
           return padGroup;
         };
 
-        const buildRocket = (scale, type = "medium") => {
+        const buildMapRocket = (scale, type = "medium", rocketId = null) => {
           const rGroup = new THREE.Group();
           const core = new THREE.Mesh(new THREE.CylinderGeometry(0.8 * scale, 0.8 * scale, 10 * scale, 32), matRocketBody);
           core.position.y = 6 * scale;
@@ -382,7 +392,18 @@
           engine.castShadow = true;
           rGroup.add(engine);
 
+          const plumeMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
+          const plume = new THREE.Mesh(new THREE.ConeGeometry(1.2 * scale, 4 * scale, 16), plumeMat);
+          plume.rotation.x = Math.PI; 
+          plume.position.y = -1 * scale;
+          plume.visible = false;
+          rGroup.add(plume);
+
           rGroup.scale.set(0.25, 0.25, 0.25);
+
+          if (rocketId) {
+            rGroup.userData = { id: rocketId, plume: plume, initialY: 0 };
+          }
           return rGroup;
         };
 
@@ -408,35 +429,80 @@
         p2026.add(hub);
 
         const pad1 = buildPadComplex(-5, 15, 1);
-        const rocket1 = buildRocket(1);
+        const rocket1 = buildMapRocket(1, "medium", "spectrum-1");
         rocket1.position.set(-5, getElevation(-5, 15) + 0.25, 15);
+        rocket1.userData.initialY = rocket1.position.y;
         p2028.add(pad1, rocket1);
+        
         const hif1 = buildHIF(15, 12);
         hif1.position.set(-20, getElevation(-20, 25), 25);
         p2028.add(hif1);
 
         const pad2 = buildPadComplex(5, 35, 1.2); 
-        const rocket2 = buildRocket(1.2);
+        const rocket2 = buildMapRocket(1.2, "medium", "aurora-8");
         rocket2.position.set(5, getElevation(5, 35) + 0.25, 35);
+        rocket2.userData.initialY = rocket2.position.y;
         p2030.add(pad2, rocket2);
+        
         const hifExt = buildHIF(12, 10);
         hifExt.position.set(-36, getElevation(-36, 25), 25);
         p2030.add(hifExt);
 
         const pad3 = buildPadComplex(-20, 0, 1.5); 
-        const rocket3 = buildRocket(1.5, "heavy");
+        const rocket3 = buildMapRocket(1.5, "heavy", "c4m-baseline");
         rocket3.position.set(-20, getElevation(-20, 0) + 0.25, 0);
+        rocket3.userData.initialY = rocket3.position.y;
         p2032.add(pad3, rocket3);
+        
         const pad4 = buildPadComplex(0, 5, 1.1);
         p2032.add(pad4);
 
         scene.add(p2024, p2026, p2028, p2030, p2032);
         phasesRef.current = { p2024, p2026, p2028, p2030, p2032 };
+        
+        sceneRocketsRef.current = {
+          'spectrum-1': rocket1,
+          'aurora-8': rocket2,
+          'c4m-baseline': rocket3
+        };
+
+        const breakLerp = () => { cameraLerpRef.current = null; };
+        renderer.domElement.addEventListener('pointerdown', breakLerp);
+        renderer.domElement.addEventListener('wheel', breakLerp, { passive: true });
+        renderer.domElement.addEventListener('touchstart', breakLerp, { passive: true });
 
         let frameId;
         const animate = () => {
           frameId = requestAnimationFrame(animate);
           controls.update();
+
+          const ls = launchStateRef.current;
+          if (ls.active && sceneRocketsRef.current) {
+            const r = sceneRocketsRef.current[ls.rocketId];
+            if (r) {
+              ls.time += 0.015;
+              const accel = ls.time * ls.time * 30; 
+              r.position.y = r.userData.initialY + accel;
+              r.userData.plume.visible = true;
+              r.userData.plume.scale.setScalar(0.8 + Math.sin(Date.now() * 0.03) * 0.3);
+              
+              controls.target.lerp(r.position, 0.08);
+
+              // Visual ceiling handoff threshold
+              if (r.position.y > r.userData.initialY + 120) {
+                 ls.active = false;
+                 r.position.y = r.userData.initialY;
+                 r.userData.plume.visible = false;
+                 onHandoffRef.current(ls.rocketId);
+              }
+            }
+          } else if (cameraLerpRef.current) {
+            controls.target.lerp(cameraLerpRef.current, 0.05);
+            if (controls.target.distanceTo(cameraLerpRef.current) < 0.1) {
+               cameraLerpRef.current = null;
+            }
+          }
+
           renderer.render(scene, camera);
         };
         animate();
@@ -452,6 +518,10 @@
         return () => {
           cancelAnimationFrame(frameId);
           window.removeEventListener('resize', handleResize);
+          renderer.domElement.removeEventListener('pointerdown', breakLerp);
+          renderer.domElement.removeEventListener('wheel', breakLerp);
+          renderer.domElement.removeEventListener('touchstart', breakLerp);
+          
           if (currentContainer && currentContainer.contains(renderer.domElement)) {
             currentContainer.removeChild(renderer.domElement);
           }
@@ -483,13 +553,41 @@
       return (
         <div className="relative w-full h-[550px]">
           {isLoading && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#091321] rounded-xl pointer-events-none">
+            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#091321] rounded-xl pointer-events-none">
               <span className="text-cyan-400 font-mono text-xs font-bold tracking-[0.2em] mb-4 animate-pulse">LOADING SATELLITE DATA...</span>
               <div className="w-48 h-1 bg-slate-800 rounded-full overflow-hidden">
                 <div className="w-full h-full bg-cyan-400 rounded-full animate-pulse"></div>
               </div>
             </div>
           )}
+
+          <div className="absolute top-4 left-4 p-4 bg-[#091321]/80 backdrop-blur-md rounded-xl border border-slate-600/30 shadow-2xl z-20 flex flex-col gap-3 min-w-[200px]">
+            <span className="text-[10px] font-mono text-fuchsia-400 font-bold tracking-wider">ORBITAL LAUNCH DEMO</span>
+            <select 
+              value={selectedMission}
+              onChange={(e) => {
+                const rid = e.target.value;
+                setSelectedMission(rid);
+                if (rid === 'spectrum-1' && year < 2028) setBuildYear(2028);
+                if (rid === 'aurora-8' && year < 2030) setBuildYear(2030);
+                if (rid === 'c4m-baseline' && year < 2032) setBuildYear(2032);
+              }}
+              className="bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-white outline-none cursor-pointer"
+            >
+              {orbitalRockets.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+            <button 
+              onClick={() => {
+                 if (!launchStateRef.current.active) {
+                   launchStateRef.current = { active: true, time: 0, rocketId: selectedMission };
+                 }
+              }}
+              className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-xs font-bold py-2.5 rounded-lg transition flex items-center justify-center gap-2 shadow-lg"
+            >
+              <IconPlay /> Launch To Orbit
+            </button>
+          </div>
+
           <div ref={mountRef} className="w-full h-full" />
         </div>
       );
@@ -659,7 +757,6 @@
         const curveLine = new THREE.Line(lineGeo, lineMat);
         scene.add(curveLine);
 
-        // Increase scale multiplier from 0.1 to 0.15 for better screen presence
         const markerScale = rocket.missionType === 'Suborbital' ? 4 : 40; 
         const { group: markerMesh, stage1, plume } = createTelemetryRocket(markerScale * 0.15, rocket.missionType === 'heavy' ? 'heavy' : 'medium');
         markerMesh.rotation.x = Math.PI / 2;
@@ -766,7 +863,7 @@
             const { plume, stage1, tMeco, lastT } = sceneRef.current;
             if (lastT >= tMeco) {
               const dt = lastT - tMeco;
-              plume.scale.setScalar(0.001); // Instant MECO Engine Cut
+              plume.scale.setScalar(0.001); 
               
               // Backward separation and parabolic drop
               stage1.position.y = -dt * (rocket.missionType === 'Suborbital' ? 80 : 300); 
@@ -968,7 +1065,6 @@
         const rocketPivot = new THREE.Group();
         orbitGroup.add(rocketPivot);
 
-        // Increase scale multiplier from 0.15 to 0.25 for better screen presence
         const { group: rocketMesh, stage1, plume } = createTelemetryRocket(0.25, rocket.missionType === 'heavy' ? 'heavy' : 'medium');
         rocketPivot.add(rocketMesh);
 
@@ -1195,10 +1291,12 @@
       const status = getSafetyStatus(distanceKm, radii);
       const canvasRef = useRef(null);
       
-      // Hook integrated to manage seamless auto-switch to Global Orbit mode
       const hasAutoSwitched = useRef(false);
       const isSuborbital = activeRocket.missionType === 'Suborbital';
       const isOrbitAchieved = flightProgress >= 100 && !isSuborbital;
+
+      // Extract strictly orbital rockets for the new Map HUD
+      const orbitalRockets = useMemo(() => ROCKET_MANIFEST.filter(r => r.missionType === 'Orbital' || r.missionType === 'Medium Lift'), []);
 
       useEffect(() => {
         if (flightProgress < 100) hasAutoSwitched.current = false;
@@ -1354,7 +1452,18 @@
                   <p className="text-sm text-slate-400 mb-5">Topographic expansion mapping 4 commercial launch pads. Click and drag to orbit. Scroll to zoom.</p>
                   
                   <div className="relative rounded-xl overflow-hidden border border-[#233247] shadow-inner bg-[#091321]">
-                    <EnhancedThreeViewer year={buildYear} />
+                    <EnhancedThreeViewer 
+                      year={buildYear} 
+                      setBuildYear={setBuildYear} 
+                      orbitalRockets={orbitalRockets}
+                      onHandoff={(rocketId) => {
+                        setSelectedRocketId(rocketId);
+                        setActiveTab('telemetry');
+                        setFlightView('global');
+                        setFlightProgress(100);
+                        setIsFlightPlaying(true);
+                      }}
+                    />
 
                     <div className="absolute bottom-4 left-4 right-4 p-4 bg-[#091321]/70 backdrop-blur-md rounded-xl border border-slate-600/30 shadow-2xl">
                       <div className="flex justify-between items-center mb-3">
