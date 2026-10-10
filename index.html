@@ -487,13 +487,11 @@
               
               controls.target.lerp(r.position, 0.08);
 
-              // Visual ceiling handoff threshold
               if (r.position.y > r.userData.initialY + 120) {
                  ls.active = false;
                  r.position.y = r.userData.initialY;
                  r.userData.plume.visible = false;
 
-                 // Post-launch camera reset
                  controls.target.set(0, 0, 0);
                  camera.position.set(55, 45, 55);
 
@@ -700,6 +698,7 @@
                 <text x="0" y="4" fill="#38bdf8" fontSize="12" fontWeight="bold" textAnchor="middle" className="font-mono">{currentAlt} km</text>
               </g>
               
+              {/* Dynamic 2D Stage Separation & Plume */}
               <g transform={`translate(${rocketPx}, ${rocketPy}) rotate(${rotation})`}>
                 <polygon points="5,-4 16,0 5,4" fill="#f8fafc" />
                 {boosterVisible && (
@@ -962,6 +961,7 @@
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x091321);
 
+        // 1. REAL CAMERA (Used for rendering)
         const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 10000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(w, h);
@@ -969,6 +969,7 @@
         renderer.domElement.style.touchAction = 'none';
         currentContainer.appendChild(renderer.domElement);
 
+        // 2. EARTH CONTROLS (Used only during Ascent & Idle for standard dragging)
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan = false;
@@ -977,6 +978,7 @@
         controls.minDistance = 2; 
         controls.maxDistance = 250; 
 
+        // 3. PROXY ORBIT CONTROLS (Used to track user dragging without fighting orbital physics)
         const dummyCamera = new THREE.PerspectiveCamera(45, w / h, 0.1, 10000);
         dummyCamera.position.set(0, 40, 0); 
         const dummyControls = new THREE.OrbitControls(dummyCamera, renderer.domElement);
