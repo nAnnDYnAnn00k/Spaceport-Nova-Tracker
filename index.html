@@ -698,7 +698,6 @@
                 <text x="0" y="4" fill="#38bdf8" fontSize="12" fontWeight="bold" textAnchor="middle" className="font-mono">{currentAlt} km</text>
               </g>
               
-              {/* Dynamic 2D Stage Separation & Plume */}
               <g transform={`translate(${rocketPx}, ${rocketPy}) rotate(${rotation})`}>
                 <polygon points="5,-4 16,0 5,4" fill="#f8fafc" />
                 {boosterVisible && (
@@ -1284,7 +1283,9 @@
       const [flightView, setFlightView] = useState('2d'); 
 
       const [payloadPercent, setPayloadPercent] = useState(100);
-      const [stockData, setStockData] = useState({ price: "0.145", change: "+0.010", percent: "+7.41", vol: "142.5K", isPositive: true });
+      
+      // Fixed Initial Snapshot State reflecting roughly 0.40 CAD market close
+      const [stockData, setStockData] = useState({ price: "0.400", change: "+0.000", percent: "0.00", vol: "215.3K", isPositive: true });
 
       const aboutModalRef = useRef(null);
 
@@ -1328,7 +1329,8 @@
               isPositive: isPos
             });
           } catch (err) {
-            console.warn("Stock fetch failed, using fallback data", err);
+            // Graceful fail to 0.40c snapshot
+            console.warn("Stock fetch failed via CORS proxy, using snapshot fallback.");
           }
         };
         
@@ -1573,8 +1575,8 @@
                       {ROCKET_MANIFEST.map(r => <option key={r.id} value={r.id}>{r.name} • {r.operator}</option>)}
                     </select>
                     
-                    <div className="flex-1 w-full flex justify-center items-center py-6 border border-[#233247] bg-[#091321] rounded-xl relative overflow-hidden min-h-[250px] shadow-inner mb-6">
-                       <svg viewBox="0 0 100 400" className="h-full w-auto drop-shadow-[0_0_8px_rgba(52,211,153,0.2)]">
+                    <div className="w-full flex justify-center items-center py-4 border border-[#233247] bg-[#091321] rounded-xl relative overflow-hidden h-[120px] shadow-inner mb-4">
+                       <svg viewBox="0 0 100 400" className="h-[90px] w-auto drop-shadow-[0_0_8px_rgba(52,211,153,0.2)]">
                           {/* Grid background */}
                           <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
                             <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#1e293b" strokeWidth="0.5"/>
