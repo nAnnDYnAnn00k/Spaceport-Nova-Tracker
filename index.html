@@ -129,29 +129,71 @@
       
       const matBody = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
       const matDark = new THREE.MeshBasicMaterial({ color: 0x1e293b });
+      const matAccent = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
       const matSteel = new THREE.MeshBasicMaterial({ color: 0x94a3b8 });
       
       const stage2 = new THREE.Group();
-      const nose = new THREE.Mesh(new THREE.ConeGeometry(1.5 * scale, 2.5 * scale, 16), type === 'heavy' ? matDark : matBody);
-      nose.position.y = 2.75 * scale; 
-      stage2.add(nose);
+      const s2Body = new THREE.Mesh(new THREE.CylinderGeometry(1.4 * scale, 1.4 * scale, 2.4 * scale, 20), matBody);
+      s2Body.position.y = 0.8 * scale;
+      const fairingBase = new THREE.Mesh(new THREE.CylinderGeometry(1.55 * scale, 1.4 * scale, 0.8 * scale, 20), matAccent);
+      fairingBase.position.y = 2.4 * scale;
+      const nose = new THREE.Mesh(new THREE.ConeGeometry(1.55 * scale, 3.2 * scale, 20), type === 'heavy' ? matDark : matBody);
+      nose.position.y = 4.4 * scale; 
+      const s2Nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.4 * scale, 0.85 * scale, 0.9 * scale, 16), matSteel);
+      s2Nozzle.position.y = -0.6 * scale;
+      
+      const s2PlumeGroup = new THREE.Group();
+      const s2OuterMat = new THREE.MeshBasicMaterial({ color: 0xc026d3, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
+      const s2InnerMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+      const s2Outer = new THREE.Mesh(new THREE.ConeGeometry(1.4 * scale, 4.5 * scale, 16), s2OuterMat);
+      s2Outer.rotation.x = Math.PI;
+      s2Outer.position.y = -2.8 * scale;
+      const s2Inner = new THREE.Mesh(new THREE.ConeGeometry(0.6 * scale, 2.5 * scale, 16), s2InnerMat);
+      s2Inner.rotation.x = Math.PI;
+      s2Inner.position.y = -1.8 * scale;
+      s2PlumeGroup.add(s2Outer, s2Inner);
+      s2PlumeGroup.visible = false;
+
+      stage2.add(s2Body, fairingBase, nose, s2Nozzle, s2PlumeGroup);
       
       const stage1 = new THREE.Group();
-      const core = new THREE.Mesh(new THREE.CylinderGeometry(1.5 * scale, 1.5 * scale, 8 * scale, 16), matBody);
-      core.position.y = -2.5 * scale;
+      const interstage = new THREE.Mesh(new THREE.CylinderGeometry(1.42 * scale, 1.42 * scale, 1.0 * scale, 20), matDark);
+      interstage.position.y = -0.9 * scale;
+      const core = new THREE.Mesh(new THREE.CylinderGeometry(1.4 * scale, 1.4 * scale, 7.5 * scale, 20), matBody);
+      core.position.y = -5.15 * scale;
+      const stripe = new THREE.Mesh(new THREE.CylinderGeometry(1.43 * scale, 1.43 * scale, 0.6 * scale, 20), matAccent);
+      stripe.position.y = -3.0 * scale;
       
-      const engine = new THREE.Mesh(new THREE.CylinderGeometry(0.8 * scale, 1.2 * scale, 1 * scale, 16), matSteel);
-      engine.position.y = -7 * scale;
+      const skirt = new THREE.Mesh(new THREE.CylinderGeometry(1.4 * scale, 1.55 * scale, 1.0 * scale, 20), matDark);
+      skirt.position.y = -9.4 * scale;
+
+      const engineCluster = new THREE.Group();
+      engineCluster.position.y = -10.2 * scale;
+      const centerNozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.45 * scale, 0.75 * scale, 0.9 * scale, 16), matSteel);
+      engineCluster.add(centerNozzle);
+      for (let i = 0; i < 4; i++) {
+        const ang = (i / 4) * Math.PI * 2;
+        const noz = new THREE.Mesh(new THREE.CylinderGeometry(0.3 * scale, 0.5 * scale, 0.8 * scale, 12), matSteel);
+        noz.position.set(Math.cos(ang) * 0.75 * scale, 0, Math.sin(ang) * 0.75 * scale);
+        engineCluster.add(noz);
+      }
       
-      const plumeMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
-      const plume = new THREE.Mesh(new THREE.ConeGeometry(1.2 * scale, 5 * scale, 16), plumeMat);
-      plume.rotation.x = Math.PI; 
-      plume.position.y = -10 * scale;
+      const plume = new THREE.Group();
+      const plumeOuterMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false });
+      const plumeInnerMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
+      const plumeOuter = new THREE.Mesh(new THREE.ConeGeometry(1.5 * scale, 6.5 * scale, 16), plumeOuterMat);
+      plumeOuter.rotation.x = Math.PI;
+      plumeOuter.position.y = -3.25 * scale;
+      const plumeInner = new THREE.Mesh(new THREE.ConeGeometry(0.75 * scale, 3.8 * scale, 16), plumeInnerMat);
+      plumeInner.rotation.x = Math.PI;
+      plumeInner.position.y = -1.9 * scale;
+      plume.add(plumeOuter, plumeInner);
+      plume.position.y = -10.5 * scale;
       
-      stage1.add(core, engine, plume);
+      stage1.add(interstage, core, stripe, skirt, engineCluster, plume);
       group.add(stage1, stage2);
       
-      return { group, stage1, stage2, plume };
+      return { group, stage1, stage2, plume, s2Plume: s2PlumeGroup };
     };
 
     function EnhancedThreeViewer({ year, setBuildYear, orbitalRockets, onHandoff }) {
@@ -160,16 +202,49 @@
       const sceneRocketsRef = useRef({});
       const launchStateRef = useRef({ active: false, time: 0, rocketId: null });
       const cameraLerpRef = useRef(null);
+      const camPosLerpRef = useRef(null);
       const onHandoffRef = useRef(onHandoff);
+      const yearRef = useRef(year);
 
       const [isLoading, setIsLoading] = useState(true);
       const [selectedMission, setSelectedMission] = useState(orbitalRockets[0].id);
+      const [hoveredFacility, setHoveredFacility] = useState(null);
+      const [activePreset, setActivePreset] = useState('overview');
+      const [autoOrbit, setAutoOrbit] = useState(false);
+      const autoOrbitRef = useRef(false);
 
       useEffect(() => { onHandoffRef.current = onHandoff; }, [onHandoff]);
+      useEffect(() => { yearRef.current = year; }, [year]);
+      useEffect(() => { autoOrbitRef.current = autoOrbit; }, [autoOrbit]);
+
+      const focusRocket = (rid, presetName = 'pad') => {
+        if (sceneRocketsRef.current && sceneRocketsRef.current[rid]) {
+          const rPos = sceneRocketsRef.current[rid].position.clone();
+          cameraLerpRef.current = rPos;
+          camPosLerpRef.current = rPos.clone().add(new THREE.Vector3(20, 14, 20));
+          setActivePreset(presetName);
+        }
+      };
+
+      const applyCameraPreset = (preset) => {
+        setActivePreset(preset);
+        if (preset === 'overview') {
+          cameraLerpRef.current = new THREE.Vector3(-10, 0, 15);
+          camPosLerpRef.current = new THREE.Vector3(55, 45, 60);
+        } else if (preset === 'pad') {
+          focusRocket(selectedMission, 'pad');
+        } else if (preset === 'top') {
+          cameraLerpRef.current = new THREE.Vector3(-12, 0, 18);
+          camPosLerpRef.current = new THREE.Vector3(-12, 115, 22);
+        }
+      };
 
       useEffect(() => {
         if (sceneRocketsRef.current && sceneRocketsRef.current[selectedMission]) {
-          cameraLerpRef.current = sceneRocketsRef.current[selectedMission].position.clone();
+          const rPos = sceneRocketsRef.current[selectedMission].position.clone();
+          cameraLerpRef.current = rPos;
+          camPosLerpRef.current = rPos.clone().add(new THREE.Vector3(22, 15, 22));
+          setActivePreset('pad');
         }
       }, [selectedMission]);
 
@@ -183,41 +258,56 @@
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x091321); 
+        scene.fog = new THREE.FogExp2(0x091321, 0.0042);
 
         const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
-        camera.position.set(55, 45, 55);
+        camera.position.set(55, 45, 60);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
         renderer.setSize(w, h);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.1;
+        renderer.outputEncoding = THREE.sRGBEncoding;
         currentContainer.appendChild(renderer.domElement);
 
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.maxPolarAngle = Math.PI / 2 - 0.02;
-        controls.minDistance = 15;
+        controls.dampingFactor = 0.06;
+        controls.maxPolarAngle = Math.PI / 2 - 0.03;
+        controls.minDistance = 8;
         controls.maxDistance = 180;
+        controls.target.set(-10, 0, 15);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.95)); 
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
-        dirLight.position.set(30, 60, 20);
+        const hemiLight = new THREE.HemisphereLight(0xdbeafe, 0x0f172a, 0.75);
+        scene.add(hemiLight);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.45)); 
+
+        const dirLight = new THREE.DirectionalLight(0xfffbeb, 1.65);
+        dirLight.position.set(40, 70, 30);
         dirLight.castShadow = true;
-        dirLight.shadow.mapSize.width = 4096; 
-        dirLight.shadow.mapSize.height = 4096;
-        dirLight.shadow.camera.left = -60;
-        dirLight.shadow.camera.right = 60;
-        dirLight.shadow.camera.top = 60;
-        dirLight.shadow.camera.bottom = -60;
+        dirLight.shadow.mapSize.width = 2048; 
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.left = -65;
+        dirLight.shadow.camera.right = 65;
+        dirLight.shadow.camera.top = 65;
+        dirLight.shadow.camera.bottom = -65;
         dirLight.shadow.bias = -0.0005;
         scene.add(dirLight);
 
-        const matConcrete = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.9 });
-        const matBuilding = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.8 });
-        const matSteel = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.8, roughness: 0.3 });
-        const matRocketBody = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2 });
-        const matRocketDark = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.2 });
+        const launchPointLight = new THREE.PointLight(0x22d3ee, 0, 35);
+        scene.add(launchPointLight);
+
+        const matConcrete = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.85, metalness: 0.05 });
+        const matRoad = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -1 });
+        const matBuilding = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.7, metalness: 0.2 });
+        const matSteel = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.8, roughness: 0.25 });
+        const matDarkSteel = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.6, roughness: 0.4 });
+        const matRocketBody = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2, metalness: 0.1 });
+        const matRocketDark = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.25, metalness: 0.3 });
+        const matCyanAccent = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.35, roughness: 0.2 });
 
         const mapUrl = "https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/export?bbox=-61.01,45.29,-60.95,45.32&bboxSR=4326&imageSR=102100&size=1024,1024&format=jpg&f=image";
         const texLoader = new THREE.TextureLoader();
@@ -225,13 +315,13 @@
         
         const terrainTex = texLoader.load(
           mapUrl,
-          () => { setIsLoading(false); }, 
+          (tex) => { tex.encoding = THREE.sRGBEncoding; setIsLoading(false); }, 
           undefined,                      
           () => { setIsLoading(false); }  
         );
         terrainTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-        const terrainGeo = new THREE.PlaneGeometry(160, 160, 128, 128); 
+        const terrainGeo = new THREE.PlaneGeometry(180, 180, 128, 128); 
         terrainGeo.rotateX(-Math.PI / 2);
         const pos = terrainGeo.attributes.position;
         
@@ -248,10 +338,10 @@
         terrainGeo.computeVertexNormals();
         
         const terrainMat = new THREE.MeshStandardMaterial({ 
-          color: 0xcccccc, 
+          color: 0xdbeafe, 
           map: terrainTex, 
-          roughness: 0.8,
-          metalness: 0.1 
+          roughness: 0.85,
+          metalness: 0.05 
         });
         const terrain = new THREE.Mesh(terrainGeo, terrainMat);
         terrain.receiveShadow = true;
@@ -261,40 +351,69 @@
           [-45, 55], [15, 55], [28, 25], [30, 5], [26, -15],
           [10, -25], [-10, -28], [-25, -20], [-40, -5], [-45, 55]
         ];
-        const perimeterPts = perimeterCoords.map(([px, pz]) => new THREE.Vector3(px, getElevation(px, pz) + 0.3, pz));
+        const perimeterPts = perimeterCoords.map(([px, pz]) => new THREE.Vector3(px, getElevation(px, pz) + 0.35, pz));
         
         const perimeterGeo = new THREE.BufferGeometry().setFromPoints(perimeterPts);
-        const perimeterMat = new THREE.LineDashedMaterial({ color: 0xfacc15, dashSize: 3, gapSize: 3, linewidth: 2 });
+        const perimeterMat = new THREE.LineDashedMaterial({ color: 0xfacc15, dashSize: 2.5, gapSize: 2, linewidth: 2 });
         const perimeterLine = new THREE.Line(perimeterGeo, perimeterMat);
         perimeterLine.computeLineDistances();
         scene.add(perimeterLine);
 
-        const makeBoundaryLabel = () => {
+        const makeFloatingTag = (title, subtitle, accent = '#38bdf8') => {
           const canvas = document.createElement('canvas');
-          canvas.width = 512; canvas.height = 128;
+          canvas.width = 512; canvas.height = 140;
           const ctx = canvas.getContext('2d');
-          ctx.fillStyle = '#facc15';
-          ctx.font = 'bold 32px monospace';
+          ctx.fillStyle = 'rgba(9, 19, 33, 0.88)';
+          ctx.strokeStyle = accent;
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          const x = 10, y = 10, w = 492, h = 120, r = 18;
+          ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+          ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+          ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+          ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
+          ctx.fill(); ctx.stroke();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 30px monospace';
           ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('355 ACRE LEASE BOUNDARY', 256, 64);
+          ctx.fillText(title, 256, 56);
+
+          ctx.fillStyle = accent;
+          ctx.font = 'bold 22px monospace';
+          ctx.fillText(subtitle, 256, 96);
+
           const texture = new THREE.CanvasTexture(canvas);
-          const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+          const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
           const sprite = new THREE.Sprite(material);
-          sprite.scale.set(40, 10, 1);
+          sprite.scale.set(11, 3, 1);
           return sprite;
         };
-        const boundaryLabel = makeBoundaryLabel();
-        boundaryLabel.position.set(-25, 10, 45); 
+
+        const boundaryLabel = makeFloatingTag('335 ACRE CROWN LEASE', 'CANSO SPACEPORT PERIMETER', '#facc15');
+        boundaryLabel.scale.set(18, 4.8, 1);
+        boundaryLabel.position.set(-22, 9, 48); 
         scene.add(boundaryLabel);
 
         const water = new THREE.Mesh(
-          new THREE.PlaneGeometry(300, 300),
-          new THREE.MeshStandardMaterial({ color: 0x072540, transparent: true, opacity: 0.85, roughness: 0.1, metalness: 0.8 })
+          new THREE.PlaneGeometry(450, 450),
+          new THREE.MeshStandardMaterial({ color: 0x06213a, transparent: true, opacity: 0.9, roughness: 0.12, metalness: 0.85 })
         );
         water.rotation.x = -Math.PI / 2;
-        water.position.y = -2.5;
+        water.position.y = -2.4;
         scene.add(water);
+
+        const buildRoadCorridor = (x1, z1, x2, z2, width = 1.4) => {
+          const p1 = new THREE.Vector3(x1, getElevation(x1, z1) + 0.08, z1);
+          const p2 = new THREE.Vector3(x2, getElevation(x2, z2) + 0.08, z2);
+          const dist = p1.distanceTo(p2);
+          const mid = p1.clone().add(p2).multiplyScalar(0.5);
+          const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, 0.12, dist), matRoad);
+          mesh.position.copy(mid);
+          mesh.lookAt(p2);
+          mesh.receiveShadow = true;
+          return mesh;
+        };
 
         const p2024 = new THREE.Group();
         const p2026 = new THREE.Group();
@@ -302,159 +421,300 @@
         const p2030 = new THREE.Group();
         const p2032 = new THREE.Group();
 
-        const buildHIF = (width, depth) => {
+        const interactables = [];
+
+        const buildHIF = (width, depth, meta) => {
           const group = new THREE.Group();
-          const base = new THREE.Mesh(new THREE.BoxGeometry(width, 6, depth), matBuilding);
-          base.position.y = 3;
+          const base = new THREE.Mesh(new THREE.BoxGeometry(width, 6.5, depth), matBuilding);
+          base.position.y = 3.25;
           base.castShadow = true; base.receiveShadow = true;
-          const roof = new THREE.Mesh(new THREE.CylinderGeometry(depth/2, depth/2, width, 32, 1, false, 0, Math.PI), matSteel);
+
+          const roof = new THREE.Mesh(new THREE.CylinderGeometry(depth/2, depth/2, width + 0.4, 24, 1, false, 0, Math.PI), matSteel);
           roof.rotation.z = Math.PI / 2;
-          roof.position.y = 6;
+          roof.position.y = 6.5;
           roof.castShadow = true;
-          const apron = new THREE.Mesh(new THREE.BoxGeometry(width, 0.2, depth + 10), matConcrete);
-          apron.position.set(0, 0.1, 5);
+
+          const door = new THREE.Mesh(new THREE.BoxGeometry(width * 0.5, 4.8, depth + 0.3), matDarkSteel);
+          door.position.y = 2.4;
+
+          const accentStripe = new THREE.Mesh(new THREE.BoxGeometry(width + 0.2, 0.4, depth + 0.2), matCyanAccent);
+          accentStripe.position.y = 5.6;
+
+          const apron = new THREE.Mesh(new THREE.BoxGeometry(width + 4, 0.2, depth + 12), matConcrete);
+          apron.position.set(0, 0.1, 4);
           apron.receiveShadow = true;
-          group.add(base, roof, apron);
+
+          group.add(base, roof, door, accentStripe, apron);
           group.scale.set(0.25, 0.25, 0.25);
+
+          if (meta) {
+            base.userData = meta;
+            roof.userData = meta;
+            interactables.push(base, roof);
+          }
           return group;
         };
 
-        const buildPadComplex = (x, z, scale, hasTrench = true, type = "medium") => {
+        const buildPadComplex = (x, z, scale, hasTrench = true, meta = null) => {
           const padGroup = new THREE.Group();
           
-          const deck = new THREE.Mesh(new THREE.BoxGeometry(14 * scale, 1, 14 * scale), matConcrete);
-          deck.position.y = 0.5;
+          const deck = new THREE.Mesh(new THREE.BoxGeometry(15 * scale, 1.2, 15 * scale), matConcrete);
+          deck.position.y = 0.6;
           deck.receiveShadow = true; deck.castShadow = true;
           padGroup.add(deck);
 
+          const padRing = new THREE.Mesh(
+            new THREE.RingGeometry(4.2 * scale, 4.8 * scale, 32),
+            new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.45 })
+          );
+          padRing.rotation.x = -Math.PI / 2;
+          padRing.position.y = 1.25;
+          padGroup.add(padRing);
+
           if (hasTrench) {
             const trenchGroup = new THREE.Group();
-            const trenchWall1 = new THREE.Mesh(new THREE.BoxGeometry(1 * scale, 1.5, 16 * scale), matConcrete);
-            trenchWall1.position.set(-2.5 * scale, 0.75, 6 * scale);
-            const trenchWall2 = new THREE.Mesh(new THREE.BoxGeometry(1 * scale, 1.5, 16 * scale), matConcrete);
-            trenchWall2.position.set(2.5 * scale, 0.75, 6 * scale);
-            const trenchFloor = new THREE.Mesh(new THREE.BoxGeometry(4 * scale, 0.2, 16 * scale), new THREE.MeshStandardMaterial({ color: 0x0a0a0a }));
-            trenchFloor.position.set(0, 0.1, 6 * scale);
+            const trenchWall1 = new THREE.Mesh(new THREE.BoxGeometry(1.2 * scale, 1.6, 17 * scale), matConcrete);
+            trenchWall1.position.set(-2.6 * scale, 0.8, 6 * scale);
+            const trenchWall2 = new THREE.Mesh(new THREE.BoxGeometry(1.2 * scale, 1.6, 17 * scale), matConcrete);
+            trenchWall2.position.set(2.6 * scale, 0.8, 6 * scale);
+            const trenchFloor = new THREE.Mesh(new THREE.BoxGeometry(4 * scale, 0.25, 17 * scale), matDarkSteel);
+            trenchFloor.position.set(0, 0.12, 6 * scale);
             trenchGroup.add(trenchWall1, trenchWall2, trenchFloor);
             padGroup.add(trenchGroup);
           }
 
-          const strongback = new THREE.Mesh(new THREE.BoxGeometry(1.5 * scale, 16 * scale, 1.5 * scale), matSteel);
-          strongback.position.set(2.5 * scale, 8 * scale, -2 * scale);
-          strongback.castShadow = true;
-          padGroup.add(strongback);
+          // Detailed Truss Strongback Tower
+          const towerX = 2.6 * scale, towerZ = -2 * scale, towerH = 16.5 * scale;
+          const strongbackCore = new THREE.Mesh(new THREE.BoxGeometry(1.2 * scale, towerH, 1.2 * scale), matDarkSteel);
+          strongbackCore.position.set(towerX, towerH / 2, towerZ);
+          strongbackCore.castShadow = true;
+          padGroup.add(strongbackCore);
 
-          const tankGeo = new THREE.CylinderGeometry(1.5 * scale, 1.5 * scale, 7 * scale, 16);
-          const tankMat1 = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 }); 
-          const tankMat2 = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 }); 
+          const trussCage = new THREE.Mesh(
+            new THREE.BoxGeometry(1.7 * scale, towerH, 1.7 * scale, 1, 8, 1),
+            new THREE.MeshBasicMaterial({ color: 0xcbd5e1, wireframe: true })
+          );
+          trussCage.position.set(towerX, towerH / 2, towerZ);
+          padGroup.add(trussCage);
+
+          // Umbilical Swing Arms
+          [0.45, 0.72, 0.9].forEach((pct) => {
+            const arm = new THREE.Mesh(new THREE.BoxGeometry(2.8 * scale, 0.35 * scale, 0.45 * scale), matSteel);
+            arm.position.set(towerX - 1.3 * scale, towerH * pct, towerZ + 1.0 * scale);
+            padGroup.add(arm);
+          });
+
+          // Propellant Farm & Piping
+          const tankGeo = new THREE.CylinderGeometry(1.4 * scale, 1.4 * scale, 7.5 * scale, 20);
+          const tankMat1 = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25 }); 
+          const tankMat2 = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.45 }); 
           
           const tank1 = new THREE.Mesh(tankGeo, tankMat1);
           tank1.rotation.z = Math.PI / 2;
-          tank1.position.set(-9 * scale, 1.5 * scale, -2 * scale);
+          tank1.position.set(-10 * scale, 1.8 * scale, -2.5 * scale);
           tank1.castShadow = true;
           
           const tank2 = new THREE.Mesh(tankGeo, tankMat2);
           tank2.rotation.z = Math.PI / 2;
-          tank2.position.set(-9 * scale, 1.5 * scale, 3 * scale);
+          tank2.position.set(-10 * scale, 1.8 * scale, 2.5 * scale);
           tank2.castShadow = true;
-          
-          padGroup.add(tank1, tank2);
 
-          const mastGeo = new THREE.CylinderGeometry(0.1, 0.3, 22 * scale, 8); 
-          const offset = 6.5 * scale;
+          const pipeRun = new THREE.Mesh(new THREE.CylinderGeometry(0.25 * scale, 0.25 * scale, 9 * scale, 8), matSteel);
+          pipeRun.rotation.z = Math.PI / 2;
+          pipeRun.position.set(-5 * scale, 1.0 * scale, 0);
+          
+          padGroup.add(tank1, tank2, pipeRun);
+
+          // Lightning Protection Masts
+          const mastGeo = new THREE.CylinderGeometry(0.08, 0.32, 23 * scale, 8); 
+          const offset = 6.8 * scale;
           [[-offset, -offset], [offset, -offset], [-offset, offset], [offset, offset]].forEach(([mx, mz]) => {
             const mast = new THREE.Mesh(mastGeo, matSteel);
-            mast.position.set(mx, 11 * scale, mz);
+            mast.position.set(mx, 11.5 * scale, mz);
             mast.castShadow = true;
             padGroup.add(mast);
           });
 
           padGroup.scale.set(0.25, 0.25, 0.25);
           padGroup.position.set(x, getElevation(x, z), z);
+
+          if (meta) {
+            const hitBox = new THREE.Mesh(
+              new THREE.BoxGeometry(20 * scale, 24 * scale, 20 * scale),
+              new THREE.MeshBasicMaterial({ visible: false })
+            );
+            hitBox.position.y = 10 * scale;
+            hitBox.userData = { ...meta, worldPos: padGroup.position.clone() };
+            padGroup.add(hitBox);
+            interactables.push(hitBox);
+
+            const tag = makeFloatingTag(meta.shortTitle, meta.subLabel, meta.accent || '#38bdf8');
+            tag.position.set(0, 27 * scale, 0);
+            padGroup.add(tag);
+          }
+
           return padGroup;
         };
 
         const buildMapRocket = (scale, type = "medium", rocketId = null) => {
           const rGroup = new THREE.Group();
-          const core = new THREE.Mesh(new THREE.CylinderGeometry(0.8 * scale, 0.8 * scale, 10 * scale, 32), matRocketBody);
-          core.position.y = 6 * scale;
+          const core = new THREE.Mesh(new THREE.CylinderGeometry(0.8 * scale, 0.8 * scale, 8.5 * scale, 24), matRocketBody);
+          core.position.y = 5.25 * scale;
           core.castShadow = true;
           rGroup.add(core);
 
-          const nose = new THREE.Mesh(new THREE.ConeGeometry(0.8 * scale, 2.5 * scale, 32), type === "heavy" ? matRocketDark : matRocketBody);
-          nose.position.y = 12.25 * scale;
+          const interstage = new THREE.Mesh(new THREE.CylinderGeometry(0.82 * scale, 0.82 * scale, 1.2 * scale, 24), matRocketDark);
+          interstage.position.y = 9.8 * scale;
+          rGroup.add(interstage);
+
+          const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.8 * scale, 0.8 * scale, 2.2 * scale, 24), matRocketBody);
+          upper.position.y = 11.5 * scale;
+          rGroup.add(upper);
+
+          const nose = new THREE.Mesh(new THREE.ConeGeometry(0.85 * scale, 2.8 * scale, 24), type === "heavy" ? matRocketDark : matRocketBody);
+          nose.position.y = 14.0 * scale;
           nose.castShadow = true;
           rGroup.add(nose);
 
-          const engine = new THREE.Mesh(new THREE.CylinderGeometry(0.4 * scale, 0.7 * scale, 1 * scale, 32), matSteel);
+          const engine = new THREE.Mesh(new THREE.CylinderGeometry(0.45 * scale, 0.75 * scale, 1.0 * scale, 20), matSteel);
           engine.position.y = 0.5 * scale;
           engine.castShadow = true;
           rGroup.add(engine);
 
-          const plumeMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
-          const plume = new THREE.Mesh(new THREE.ConeGeometry(1.2 * scale, 4 * scale, 16), plumeMat);
-          plume.rotation.x = Math.PI; 
-          plume.position.y = -1 * scale;
-          plume.visible = false;
-          rGroup.add(plume);
+          const plumeGroup = new THREE.Group();
+          const pOuterMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false });
+          const pInnerMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
+          const pOuter = new THREE.Mesh(new THREE.ConeGeometry(1.4 * scale, 5.2 * scale, 16), pOuterMat);
+          pOuter.rotation.x = Math.PI;
+          pOuter.position.y = -2.6 * scale;
+          const pInner = new THREE.Mesh(new THREE.ConeGeometry(0.7 * scale, 3.0 * scale, 16), pInnerMat);
+          pInner.rotation.x = Math.PI;
+          pInner.position.y = -1.5 * scale;
+          plumeGroup.add(pOuter, pInner);
+          plumeGroup.position.y = 0;
+          plumeGroup.visible = false;
+          rGroup.add(plumeGroup);
 
           rGroup.scale.set(0.25, 0.25, 0.25);
 
           if (rocketId) {
-            rGroup.userData = { id: rocketId, plume: plume, initialY: 0 };
+            rGroup.userData = { id: rocketId, plume: plumeGroup, initialY: 0 };
           }
           return rGroup;
         };
 
-        const subPad = buildPadComplex(-35, 10, 0.6, false, "small");
+        // 2024: Suborbital Pad & Leaf Space Tracking Dish
+        const subPad = buildPadComplex(-35, 10, 0.65, false, {
+          name: "Suborbital Launch Complex",
+          shortTitle: "SUBORBITAL PAD",
+          subLabel: "T-MINUS BARRACUDA",
+          desc: "Operational hypersonic test pad & campaign staging area.",
+          yearReq: 2024,
+          accent: "#22d3ee"
+        });
         p2024.add(subPad);
-        const dishBase = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 2, 16), matConcrete);
-        dishBase.scale.set(0.25, 0.25, 0.25);
-        dishBase.position.set(-40, getElevation(-40, 16) + 0.25, 16);
-        const dish = new THREE.Mesh(new THREE.SphereGeometry(1.5, 16, 16, 0, Math.PI*2, 0, Math.PI/2.5), matRocketBody);
-        dish.scale.set(0.25, 0.25, 0.25);
-        dish.rotation.x = Math.PI / 4;
-        dish.position.set(-40, getElevation(-40, 16) + 0.625, 16);
-        p2024.add(dishBase, dish);
 
-        const gate = buildHIF(8, 6); 
+        const dishBase = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.9, 2.4, 16), matConcrete);
+        dishBase.scale.set(0.25, 0.25, 0.25);
+        dishBase.position.set(-40, getElevation(-40, 16) + 0.3, 16);
+        const radome = new THREE.Mesh(new THREE.SphereGeometry(2.2, 20, 20), matRocketBody);
+        radome.scale.set(0.25, 0.25, 0.25);
+        radome.position.set(-40, getElevation(-40, 16) + 0.85, 16);
+        radome.castShadow = true;
+        p2024.add(dishBase, radome, buildRoadCorridor(-40, 45, -35, 10, 1.0));
+
+        // 2026: Gatehouse & Utility Hub
+        const gate = buildHIF(9, 7, {
+          name: "Primary Security Gatehouse",
+          desc: "Site access control, range safety command & communications.",
+          yearReq: 2026,
+          worldPos: new THREE.Vector3(-40, getElevation(-40, 45), 45)
+        }); 
         gate.position.set(-40, getElevation(-40, 45), 45);
         gate.rotation.y = Math.PI / 4;
         p2026.add(gate);
-        const hub = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 15), matBuilding);
-        hub.scale.set(0.25, 0.25, 0.25);
-        hub.position.set(-30, getElevation(-30, 40) + 0.5, 40);
-        hub.castShadow = true; hub.receiveShadow = true;
-        p2026.add(hub);
 
-        const pad1 = buildPadComplex(-5, 15, 1);
-        const rocket1 = buildMapRocket(1, "medium", "spectrum-1");
-        rocket1.position.set(-5, getElevation(-5, 15) + 0.25, 15);
+        const hub = buildHIF(11, 14, {
+          name: "Central Utility & Power Hub",
+          desc: "Primary electrical substation, fiber telemetry & water storage.",
+          yearReq: 2026,
+          worldPos: new THREE.Vector3(-30, getElevation(-30, 40), 40)
+        });
+        hub.position.set(-30, getElevation(-30, 40), 40);
+        p2026.add(hub, buildRoadCorridor(-40, 45, -20, 25, 1.3));
+
+        // 2028: Pad 1 (Isar Spectrum) & Main HIF
+        const pad1 = buildPadComplex(-5, 15, 1.05, true, {
+          name: "Orbital Launch Complex 1 (Isar)",
+          shortTitle: "PAD 1 • SPECTRUM",
+          subLabel: "ISAR AEROSPACE",
+          desc: "Dedicated orbital launch complex for Spectrum 2-stage vehicle.",
+          rocketId: "spectrum-1",
+          yearReq: 2028,
+          accent: "#38bdf8"
+        });
+        const rocket1 = buildMapRocket(1.05, "medium", "spectrum-1");
+        rocket1.position.set(-5, getElevation(-5, 15) + 0.3, 15);
         rocket1.userData.initialY = rocket1.position.y;
         p2028.add(pad1, rocket1);
         
-        const hif1 = buildHIF(15, 12);
+        const hif1 = buildHIF(16, 13, {
+          name: "Horizontal Integration Facility (HIF)",
+          desc: "Primary orbital vehicle assembly & payload integration hangar.",
+          yearReq: 2028,
+          worldPos: new THREE.Vector3(-20, getElevation(-20, 25), 25)
+        });
         hif1.position.set(-20, getElevation(-20, 25), 25);
-        p2028.add(hif1);
+        p2028.add(hif1, buildRoadCorridor(-20, 25, -5, 15, 1.4));
 
-        const pad2 = buildPadComplex(5, 35, 1.2); 
+        // 2030: Pad 2 (RDX Aurora-8) & HIF Expansion
+        const pad2 = buildPadComplex(5, 35, 1.2, true, {
+          name: "Orbital Launch Complex 2 (RDX)",
+          shortTitle: "PAD 2 • AURORA-8",
+          subLabel: "REACTION DYNAMICS",
+          desc: "Domestic hybrid-rocket orbital pad supporting polar SSO missions.",
+          rocketId: "aurora-8",
+          yearReq: 2030,
+          accent: "#a855f7"
+        }); 
         const rocket2 = buildMapRocket(1.2, "medium", "aurora-8");
-        rocket2.position.set(5, getElevation(5, 35) + 0.25, 35);
+        rocket2.position.set(5, getElevation(5, 35) + 0.3, 35);
         rocket2.userData.initialY = rocket2.position.y;
         p2030.add(pad2, rocket2);
         
-        const hifExt = buildHIF(12, 10);
-        hifExt.position.set(-36, getElevation(-36, 25), 25);
-        p2030.add(hifExt);
+        const hifExt = buildHIF(13, 11, {
+          name: "Payload Processing & Cleanroom Facility",
+          desc: "Satellite fueling, encapsulation & multi-customer staging.",
+          yearReq: 2030,
+          worldPos: new THREE.Vector3(-35, getElevation(-35, 26), 26)
+        });
+        hifExt.position.set(-35, getElevation(-35, 26), 26);
+        p2030.add(hifExt, buildRoadCorridor(-20, 25, 5, 35, 1.4));
 
-        const pad3 = buildPadComplex(-20, 0, 1.5); 
+        // 2032: Pad 3 (Cyclone-4M Baseline) & Pad 4
+        const pad3 = buildPadComplex(-20, 0, 1.5, true, {
+          name: "Medium-Lift Launch Complex (LC-1)",
+          shortTitle: "LC-1 • CYCLONE-4M",
+          subLabel: "MEDIUM LIFT BASELINE",
+          desc: "Maximum reference hazard envelope complex (5,000 kg LEO class).",
+          rocketId: "c4m-baseline",
+          yearReq: 2032,
+          accent: "#f43f5e"
+        }); 
         const rocket3 = buildMapRocket(1.5, "heavy", "c4m-baseline");
-        rocket3.position.set(-20, getElevation(-20, 0) + 0.25, 0);
+        rocket3.position.set(-20, getElevation(-20, 0) + 0.35, 0);
         rocket3.userData.initialY = rocket3.position.y;
         p2032.add(pad3, rocket3);
         
-        const pad4 = buildPadComplex(0, 5, 1.1);
-        p2032.add(pad4);
+        const pad4 = buildPadComplex(0, 5, 1.15, true, {
+          name: "Commercial Orbital Pad 4",
+          shortTitle: "PAD 4 • MULTI-USER",
+          subLabel: "EXPANSION COMPLEX",
+          desc: "Fourth high-cadence commercial orbital pad completing master plan.",
+          yearReq: 2032,
+          accent: "#34d399"
+        });
+        p2032.add(pad4, buildRoadCorridor(-20, 25, -20, 0, 1.5), buildRoadCorridor(-20, 0, 0, 5, 1.3));
 
         scene.add(p2024, p2026, p2028, p2030, p2032);
         phasesRef.current = { p2024, p2026, p2028, p2030, p2032 };
@@ -465,15 +725,105 @@
           'c4m-baseline': rocket3
         };
 
-        const breakLerp = () => { cameraLerpRef.current = null; };
+        const hoverRingGeo = new THREE.RingGeometry(3.2, 3.8, 36);
+        const hoverRingMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.85 });
+        const hoverRing = new THREE.Mesh(hoverRingGeo, hoverRingMat);
+        hoverRing.rotation.x = -Math.PI / 2;
+        hoverRing.visible = false;
+        scene.add(hoverRing);
+
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+        let downPos = { x: 0, y: 0 };
+
+        const breakLerp = (e) => {
+          cameraLerpRef.current = null;
+          camPosLerpRef.current = null;
+          if (e && e.clientX !== undefined) {
+            downPos = { x: e.clientX, y: e.clientY };
+          }
+        };
+
+        const onPointerMove = (e) => {
+          const rect = renderer.domElement.getBoundingClientRect();
+          pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+          pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+          raycaster.setFromCamera(pointer, camera);
+          const hits = raycaster.intersectObjects(interactables, false);
+          const validHit = hits.find(h => h.object.userData && yearRef.current >= (h.object.userData.yearReq || 2024));
+
+          if (validHit) {
+            const data = validHit.object.userData;
+            renderer.domElement.style.cursor = 'pointer';
+            setHoveredFacility(data);
+            if (data.worldPos) {
+              hoverRing.position.set(data.worldPos.x, data.worldPos.y + 0.35, data.worldPos.z);
+              hoverRing.visible = true;
+            }
+          } else {
+            renderer.domElement.style.cursor = 'grab';
+            setHoveredFacility(null);
+            hoverRing.visible = false;
+          }
+        };
+
+        const onPointerUp = (e) => {
+          const distMoved = Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y);
+          if (distMoved > 6) return;
+
+          const rect = renderer.domElement.getBoundingClientRect();
+          pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+          pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+          raycaster.setFromCamera(pointer, camera);
+          const hits = raycaster.intersectObjects(interactables, false);
+          const validHit = hits.find(h => h.object.userData && yearRef.current >= (h.object.userData.yearReq || 2024));
+
+          if (validHit) {
+            const data = validHit.object.userData;
+            if (data.rocketId) {
+              setSelectedMission(data.rocketId);
+            } else if (data.worldPos) {
+              cameraLerpRef.current = data.worldPos.clone();
+              camPosLerpRef.current = data.worldPos.clone().add(new THREE.Vector3(18, 14, 18));
+              setActivePreset('custom');
+            }
+          }
+        };
+
         renderer.domElement.addEventListener('pointerdown', breakLerp);
+        renderer.domElement.addEventListener('pointermove', onPointerMove);
+        renderer.domElement.addEventListener('pointerup', onPointerUp);
         renderer.domElement.addEventListener('wheel', breakLerp, { passive: true });
         renderer.domElement.addEventListener('touchstart', breakLerp, { passive: true });
 
         let frameId;
         const animate = () => {
           frameId = requestAnimationFrame(animate);
+
+          controls.autoRotate = autoOrbitRef.current && !launchStateRef.current.active;
+          controls.autoRotateSpeed = 0.75;
           controls.update();
+
+          if (hoverRing.visible) {
+            const s = 1 + Math.sin(Date.now() * 0.008) * 0.08;
+            hoverRing.scale.set(s, s, 1);
+          }
+
+          // Smooth timeline scale transitions
+          const curY = yearRef.current;
+          const phasePairs = [
+            [p2024, 2024], [p2026, 2026], [p2028, 2028], [p2030, 2030], [p2032, 2032]
+          ];
+          phasePairs.forEach(([group, reqYear]) => {
+            if (!group) return;
+            const active = curY >= reqYear;
+            if (active) group.visible = true;
+            const targetS = active ? 1 : 0.001;
+            group.scale.lerp(new THREE.Vector3(1, targetS, 1), 0.12);
+            if (!active && group.scale.y < 0.02) group.visible = false;
+          });
 
           const ls = launchStateRef.current;
           if (ls.active && sceneRocketsRef.current) {
@@ -483,25 +833,36 @@
               const accel = ls.time * ls.time * 30; 
               r.position.y = r.userData.initialY + accel;
               r.userData.plume.visible = true;
-              r.userData.plume.scale.setScalar(0.8 + Math.sin(Date.now() * 0.03) * 0.3);
+              r.userData.plume.scale.setScalar(0.85 + Math.sin(Date.now() * 0.04) * 0.25);
               
-              controls.target.lerp(r.position, 0.08);
+              launchPointLight.position.set(r.position.x, r.position.y - 1.5, r.position.z);
+              launchPointLight.intensity = 3.5 + Math.sin(Date.now() * 0.05) * 1.0;
+
+              controls.target.lerp(r.position, 0.09);
 
               if (r.position.y > r.userData.initialY + 120) {
                  ls.active = false;
                  r.position.y = r.userData.initialY;
                  r.userData.plume.visible = false;
+                 launchPointLight.intensity = 0;
 
-                 controls.target.set(0, 0, 0);
-                 camera.position.set(55, 45, 55);
+                 controls.target.set(-10, 0, 15);
+                 camera.position.set(55, 45, 60);
 
                  onHandoffRef.current(ls.rocketId);
               }
             }
-          } else if (cameraLerpRef.current) {
-            controls.target.lerp(cameraLerpRef.current, 0.05);
-            if (controls.target.distanceTo(cameraLerpRef.current) < 0.1) {
-               cameraLerpRef.current = null;
+          } else {
+            launchPointLight.intensity = 0;
+            if (cameraLerpRef.current) {
+              controls.target.lerp(cameraLerpRef.current, 0.07);
+              if (camPosLerpRef.current) {
+                camera.position.lerp(camPosLerpRef.current, 0.06);
+              }
+              if (controls.target.distanceTo(cameraLerpRef.current) < 0.15) {
+                 cameraLerpRef.current = null;
+                 camPosLerpRef.current = null;
+              }
             }
           }
 
@@ -521,6 +882,8 @@
           cancelAnimationFrame(frameId);
           window.removeEventListener('resize', handleResize);
           renderer.domElement.removeEventListener('pointerdown', breakLerp);
+          renderer.domElement.removeEventListener('pointermove', onPointerMove);
+          renderer.domElement.removeEventListener('pointerup', onPointerUp);
           renderer.domElement.removeEventListener('wheel', breakLerp);
           renderer.domElement.removeEventListener('touchstart', breakLerp);
           
@@ -541,17 +904,6 @@
         };
       }, []);
 
-      useEffect(() => {
-        const { p2024, p2026, p2028, p2030, p2032 } = phasesRef.current;
-        if (p2024) {
-          p2024.visible = year >= 2024;
-          p2026.visible = year >= 2026;
-          p2028.visible = year >= 2028;
-          p2030.visible = year >= 2030;
-          p2032.visible = year >= 2032;
-        }
-      }, [year]);
-
       return (
         <div className="relative w-full h-[550px]">
           {isLoading && (
@@ -563,8 +915,12 @@
             </div>
           )}
 
-          <div className="absolute top-4 left-4 p-4 bg-[#091321]/80 backdrop-blur-md rounded-xl border border-slate-600/30 shadow-2xl z-20 flex flex-col gap-3 min-w-[200px]">
-            <span className="text-[10px] font-mono text-fuchsia-400 font-bold tracking-wider">ORBITAL LAUNCH DEMO</span>
+          {/* LEFT HUD: ORBITAL LAUNCH DEMO */}
+          <div className="absolute top-4 left-4 p-4 bg-[#091321]/85 backdrop-blur-md rounded-xl border border-slate-600/30 shadow-2xl z-20 flex flex-col gap-3 min-w-[210px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono text-fuchsia-400 font-bold tracking-wider">ORBITAL LAUNCH DEMO</span>
+              <span className="text-[9px] font-mono text-slate-400 bg-slate-800/80 px-1.5 py-0.5 rounded">CLICK PAD</span>
+            </div>
             <select 
               value={selectedMission}
               onChange={(e) => {
@@ -574,7 +930,7 @@
                 if (rid === 'aurora-8' && year < 2030) setBuildYear(2030);
                 if (rid === 'c4m-baseline' && year < 2032) setBuildYear(2032);
               }}
-              className="bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-white outline-none cursor-pointer"
+              className="bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-white outline-none cursor-pointer focus:border-cyan-400"
             >
               {orbitalRockets.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
@@ -593,6 +949,46 @@
               <IconPlay /> Launch To Orbit
             </button>
           </div>
+
+          {/* RIGHT HUD: CAMERA QUICK-VIEW PRESETS */}
+          <div className="absolute top-4 right-4 z-20 flex flex-wrap gap-1.5 bg-[#091321]/85 backdrop-blur-md p-1.5 rounded-xl border border-slate-600/30 shadow-2xl">
+            <button
+              onClick={() => applyCameraPreset('overview')}
+              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${activePreset === 'overview' ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+            >
+              OVERVIEW
+            </button>
+            <button
+              onClick={() => applyCameraPreset('pad')}
+              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${activePreset === 'pad' ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+            >
+              PAD FOCUS
+            </button>
+            <button
+              onClick={() => applyCameraPreset('top')}
+              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${activePreset === 'top' ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+            >
+              BLUEPRINT
+            </button>
+            <button
+              onClick={() => setAutoOrbit(prev => !prev)}
+              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${autoOrbit ? 'bg-emerald-400/20 text-emerald-400 border border-emerald-400/30' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+              title="Toggle Auto-Orbit"
+            >
+              ORBIT {autoOrbit ? 'ON' : 'OFF'}
+            </button>
+          </div>
+
+          {/* HOVER INSPECTOR BADGE */}
+          {hoveredFacility && (
+            <div className="absolute bottom-28 left-4 z-20 max-w-xs bg-[#091321]/90 backdrop-blur-md border border-cyan-400/40 rounded-xl p-3 shadow-2xl pointer-events-none transition-all">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                <span className="text-xs font-bold text-white font-mono">{hoveredFacility.name}</span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-snug">{hoveredFacility.desc}</p>
+            </div>
+          )}
 
           <div ref={mountRef} className="w-full h-full" />
         </div>
@@ -717,6 +1113,24 @@
     function TelemetryArcViewer3D({ rocket, progress, trajData }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
+      const [camMode, setCamMode] = useState('follow');
+      const camModeRef = useRef('follow');
+
+      useEffect(() => { camModeRef.current = camMode; }, [camMode]);
+
+      const resetOverview = () => {
+        setCamMode('overview');
+        const { camera, controls } = sceneRef.current;
+        if (!camera || !controls) return;
+        if (rocket.missionType === 'Suborbital') {
+          camera.position.set(50, 65, 175);
+          controls.target.set(50, 45, 0);
+        } else {
+          camera.position.set(1000, 340, 2100);
+          controls.target.set(1000, 240, 0);
+        }
+        controls.update();
+      };
 
       useEffect(() => {
         const container = mountRef.current;
@@ -729,7 +1143,7 @@
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x091321);
 
-        const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 10000);
+        const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 12000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(w, h);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -737,49 +1151,54 @@
 
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.maxPolarAngle = Math.PI / 2 - 0.05;
+        controls.maxPolarAngle = Math.PI / 2 - 0.02;
 
-        let camPos = new THREE.Vector3();
-        let targetPos = new THREE.Vector3();
-
-        if (rocket.missionType === 'Suborbital') {
-          camPos.set(50, 60, 180);
-          targetPos.set(50, 50, 0);
+        const isSub = rocket.missionType === 'Suborbital';
+        if (isSub) {
+          camera.position.set(50, 65, 175);
+          controls.target.set(50, 45, 0);
         } else {
-          camPos.set(1000, 300, 2200);
-          targetPos.set(1000, 250, 0);
+          camera.position.set(1000, 340, 2100);
+          controls.target.set(1000, 240, 0);
         }
-
-        camera.position.copy(camPos);
-        controls.target.copy(targetPos);
         controls.update();
 
         const { curve, tMaxQ, tKarman, tMeco } = trajData;
-        const curvePoints = curve.getPoints(100);
-        const lineGeo = new THREE.BufferGeometry().setFromPoints(curvePoints);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0xc026d3, linewidth: 2 });
-        const curveLine = new THREE.Line(lineGeo, lineMat);
-        scene.add(curveLine);
+        const markerScale = isSub ? 4 : 40; 
 
-        const markerScale = rocket.missionType === 'Suborbital' ? 4 : 40; 
-        const { group: markerMesh, stage1, plume } = createTelemetryRocket(markerScale * 0.15, rocket.missionType === 'heavy' ? 'heavy' : 'medium');
+        // Volumetric Trajectory Tube instead of 1px line
+        const tubeGeo = new THREE.TubeGeometry(curve, 120, markerScale * 0.14, 12, false);
+        const tubeMat = new THREE.MeshBasicMaterial({ color: 0xc026d3, transparent: true, opacity: 0.65 });
+        const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
+        scene.add(tubeMesh);
+
+        // Ground shadow track line
+        const groundPts = curve.getPoints(100).map(p => new THREE.Vector3(p.x, 0.2, p.z));
+        const groundGeo = new THREE.BufferGeometry().setFromPoints(groundPts);
+        const groundMat = new THREE.LineDashedMaterial({ color: 0x334155, dashSize: markerScale * 0.6, gapSize: markerScale * 0.4 });
+        const groundTrack = new THREE.Line(groundGeo, groundMat);
+        groundTrack.computeLineDistances();
+        scene.add(groundTrack);
+
+        const { group: markerMesh, stage1, plume, s2Plume } = createTelemetryRocket(markerScale * 0.14, rocket.missionType === 'Medium Lift' ? 'heavy' : 'medium');
         markerMesh.rotation.x = Math.PI / 2;
         
         const markerGroup = new THREE.Group();
         markerGroup.add(markerMesh);
         scene.add(markerGroup);
 
-        const gridScale = rocket.missionType === 'Suborbital' ? 200 : 4000;
+        const gridScale = isSub ? 240 : 4400;
         const grid = new THREE.GridHelper(gridScale, 40, 0x1e293b, 0x0f172a);
+        grid.position.x = isSub ? 50 : 1000;
         scene.add(grid);
 
-        const plumbMat = new THREE.LineDashedMaterial({ color: 0x38bdf8, dashSize: markerScale, gapSize: markerScale, transparent: true, opacity: 0.6 });
+        const plumbMat = new THREE.LineDashedMaterial({ color: 0x38bdf8, dashSize: markerScale * 0.8, gapSize: markerScale * 0.6, transparent: true, opacity: 0.7 });
         const plumbGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)]);
         const plumbLine = new THREE.Line(plumbGeo, plumbMat);
         scene.add(plumbLine);
 
-        const reticleGeo = new THREE.RingGeometry(markerScale * 0.8, markerScale * 1.2, 32);
-        const reticleMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
+        const reticleGeo = new THREE.RingGeometry(markerScale * 0.8, markerScale * 1.25, 32);
+        const reticleMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.65, side: THREE.DoubleSide });
         const groundReticle = new THREE.Mesh(reticleGeo, reticleMat);
         groundReticle.rotation.x = -Math.PI / 2;
         scene.add(groundReticle);
@@ -789,26 +1208,20 @@
           canvas.width = 512; canvas.height = 128;
           const ctx = canvas.getContext('2d');
           
-          ctx.fillStyle = 'rgba(9, 19, 33, 0.85)';
-          ctx.strokeStyle = '#233247';
+          ctx.fillStyle = 'rgba(9, 19, 33, 0.88)';
+          ctx.strokeStyle = color;
           ctx.lineWidth = 4;
           ctx.beginPath();
           const x = 12, y = 12, w = 488, h = 104, r = 20;
-          ctx.moveTo(x + r, y);
-          ctx.lineTo(x + w - r, y);
-          ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-          ctx.lineTo(x + w, y + h - r);
-          ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-          ctx.lineTo(x + r, y + h);
-          ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-          ctx.lineTo(x, y + r);
-          ctx.quadraticCurveTo(x, y, x + r, y);
+          ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+          ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+          ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+          ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
           ctx.closePath();
-          ctx.fill();
-          ctx.stroke();
+          ctx.fill(); ctx.stroke();
 
           ctx.fillStyle = color;
-          ctx.font = 'bold 44px monospace';
+          ctx.font = 'bold 42px monospace';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(text, 256, 64);
@@ -816,69 +1229,77 @@
           const texture = new THREE.CanvasTexture(canvas);
           const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
           const sprite = new THREE.Sprite(material);
-          sprite.scale.set(markerScale * 6.0, markerScale * 1.5, 1);
+          sprite.scale.set(markerScale * 5.8, markerScale * 1.45, 1);
           return sprite;
         };
 
-        const gateGeo = new THREE.TorusGeometry(markerScale * 1.5, markerScale * 0.08, 12, 32);
+        const gateGeo = new THREE.TorusGeometry(markerScale * 1.5, markerScale * 0.1, 14, 36);
         
         const posMaxQ = curve.getPoint(tMaxQ);
         const tanMaxQ = curve.getTangent(tMaxQ).normalize();
-        const gateMaxQ = new THREE.Mesh(gateGeo, new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.35 }));
+        const gateMaxQ = new THREE.Mesh(gateGeo, new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.45 }));
         gateMaxQ.position.copy(posMaxQ);
         gateMaxQ.lookAt(posMaxQ.clone().add(tanMaxQ));
         scene.add(gateMaxQ);
         const spriteMaxQ = makeTextSprite('MAX-Q: 15 km', '#22d3ee');
-        spriteMaxQ.position.copy(posMaxQ.clone().add(new THREE.Vector3(0, markerScale * 2.2, 0)));
+        spriteMaxQ.position.copy(posMaxQ.clone().add(new THREE.Vector3(0, markerScale * 2.3, 0)));
         scene.add(spriteMaxQ);
 
         const posKarman = curve.getPoint(tKarman);
         const tanKarman = curve.getTangent(tKarman).normalize();
-        const gateKarman = new THREE.Mesh(gateGeo, new THREE.MeshBasicMaterial({ color: 0xc026d3, transparent: true, opacity: 0.35 }));
+        const gateKarman = new THREE.Mesh(gateGeo, new THREE.MeshBasicMaterial({ color: 0xc026d3, transparent: true, opacity: 0.45 }));
         gateKarman.position.copy(posKarman);
         gateKarman.lookAt(posKarman.clone().add(tanKarman));
         scene.add(gateKarman);
-        const labelKarman = rocket.missionType === 'Suborbital' ? 'APOGEE: 100 km' : 'KARMAN: 100 km';
+        const labelKarman = isSub ? 'APOGEE: 100 km' : 'KARMAN: 100 km';
         const spriteKarman = makeTextSprite(labelKarman, '#c026d3');
-        spriteKarman.position.copy(posKarman.clone().add(new THREE.Vector3(0, markerScale * 2.2, 0)));
+        spriteKarman.position.copy(posKarman.clone().add(new THREE.Vector3(0, markerScale * 2.3, 0)));
         scene.add(spriteKarman);
 
-        if (rocket.missionType !== 'Suborbital') {
+        if (!isSub) {
           const posMeco = curve.getPoint(tMeco);
           const tanMeco = curve.getTangent(tMeco).normalize();
-          const gateMeco = new THREE.Mesh(gateGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.35 }));
+          const gateMeco = new THREE.Mesh(gateGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.45 }));
           gateMeco.position.copy(posMeco);
           gateMeco.lookAt(posMeco.clone().add(tanMeco));
           scene.add(gateMeco);
           const spriteMeco = makeTextSprite('MECO: 150 km', '#38bdf8');
-          spriteMeco.position.copy(posMeco.clone().add(new THREE.Vector3(0, markerScale * 2.2, 0)));
+          spriteMeco.position.copy(posMeco.clone().add(new THREE.Vector3(0, markerScale * 2.3, 0)));
           scene.add(spriteMeco);
         }
 
-        sceneRef.current = { curve, markerGroup, plumbLine, groundReticle, stage1, plume, tMeco, lastT: 0 };
+        sceneRef.current = { curve, markerGroup, plumbLine, groundReticle, stage1, plume, s2Plume, tMeco, lastT: 0, camera, controls, markerScale };
 
         let frameId;
         const animate = () => {
           frameId = requestAnimationFrame(animate);
-          controls.update();
 
           if (sceneRef.current.plume) {
-            const { plume, stage1, tMeco, lastT } = sceneRef.current;
+            const { plume, s2Plume, stage1, tMeco, lastT, markerGroup, controls } = sceneRef.current;
             if (lastT >= tMeco) {
               const dt = lastT - tMeco;
               plume.scale.setScalar(0.001); 
-              
-              stage1.position.y = -dt * (rocket.missionType === 'Suborbital' ? 80 : 300); 
-              stage1.position.z = dt * dt * (rocket.missionType === 'Suborbital' ? 400 : 1500); 
-              stage1.visible = dt < 0.15; 
+              if (s2Plume) {
+                s2Plume.visible = !isSub && lastT < 1.0;
+                s2Plume.scale.setScalar(0.8 + Math.sin(Date.now() * 0.025) * 0.25);
+              }
+              stage1.position.y = -dt * (isSub ? 80 : 300); 
+              stage1.position.z = dt * dt * (isSub ? 400 : 1500); 
+              stage1.visible = dt < 0.16; 
             } else {
-              const p = 0.8 + Math.sin(Date.now() * 0.015) * 0.3; 
+              const p = 0.85 + Math.sin(Date.now() * 0.02) * 0.25; 
               plume.scale.setScalar(p);
+              if (s2Plume) s2Plume.visible = false;
               stage1.position.set(0, 0, 0);
               stage1.visible = true;
             }
+
+            if (camModeRef.current === 'follow' && markerGroup) {
+              controls.target.lerp(markerGroup.position, 0.1);
+            }
           }
 
+          controls.update();
           renderer.render(scene, camera);
         };
         animate();
@@ -925,7 +1346,7 @@
           plumbLine.geometry.attributes.position.needsUpdate = true;
           plumbLine.computeLineDistances(); 
           
-          groundReticle.position.set(position.x, 0.2, position.z);
+          groundReticle.position.set(position.x, 0.25, position.z);
           
           if (t < 1) {
             const tangent = curve.getTangent(t).normalize();
@@ -938,16 +1359,37 @@
         }
       }, [progress]);
 
-      return <div ref={mountRef} className="w-full h-[550px]" />;
+      return (
+        <div className="relative w-full h-[550px]">
+          <div className="absolute top-3 right-3 z-20 flex gap-1.5 bg-[#091321]/85 backdrop-blur-md p-1.5 rounded-xl border border-slate-600/30 shadow-2xl">
+            <button
+              onClick={() => setCamMode('follow')}
+              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${camMode === 'follow' ? 'bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30' : 'text-slate-400 hover:text-white'}`}
+            >
+              TRACK VEHICLE
+            </button>
+            <button
+              onClick={resetOverview}
+              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${camMode === 'overview' ? 'bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30' : 'text-slate-400 hover:text-white'}`}
+            >
+              FULL ARC
+            </button>
+          </div>
+          <div ref={mountRef} className="w-full h-full" />
+        </div>
+      );
     }
 
     function TelemetryOrbitViewer3D({ rocket, progress, isFlightPlaying }) {
       const mountRef = useRef(null);
       const sceneRef = useRef({});
       const progressRef = useRef(progress);
+      const [globeCamMode, setGlobeCamMode] = useState('auto');
+      const globeCamModeRef = useRef('auto');
 
       useEffect(() => { progressRef.current = progress; }, [progress]);
       useEffect(() => { sceneRef.current.isFlightPlaying = isFlightPlaying; }, [isFlightPlaying]);
+      useEffect(() => { globeCamModeRef.current = globeCamMode; }, [globeCamMode]);
 
       useEffect(() => {
         const container = mountRef.current;
@@ -960,7 +1402,6 @@
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x091321);
 
-        // 1. REAL CAMERA (Used for rendering)
         const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 10000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(w, h);
@@ -968,7 +1409,6 @@
         renderer.domElement.style.touchAction = 'none';
         currentContainer.appendChild(renderer.domElement);
 
-        // 2. EARTH CONTROLS (Used only during Ascent & Idle for standard dragging)
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan = false;
@@ -977,7 +1417,6 @@
         controls.minDistance = 2; 
         controls.maxDistance = 250; 
 
-        // 3. PROXY ORBIT CONTROLS (Used to track user dragging without fighting orbital physics)
         const dummyCamera = new THREE.PerspectiveCamera(45, w / h, 0.1, 10000);
         dummyCamera.position.set(0, 40, 0); 
         const dummyControls = new THREE.OrbitControls(dummyCamera, renderer.domElement);
@@ -991,24 +1430,35 @@
         scene.add(earthGroup);
 
         const earthRadius = 25;
-        const coreGeo = new THREE.SphereGeometry(earthRadius, 32, 32);
+        const coreGeo = new THREE.SphereGeometry(earthRadius, 36, 36);
         const coreMat = new THREE.MeshBasicMaterial({ color: 0x07101c });
         earthGroup.add(new THREE.Mesh(coreGeo, coreMat));
 
-        const wireMat = new THREE.LineBasicMaterial({ color: 0x1e293b, transparent: true, opacity: 0.8 });
-        const wireGeo = new THREE.EdgesGeometry(new THREE.SphereGeometry(earthRadius, 16, 16));
+        // Translucent 100 km Karman Atmospheric Shell
+        const atmoGeo = new THREE.SphereGeometry(earthRadius + 0.65, 36, 36);
+        const atmoMat = new THREE.MeshBasicMaterial({
+          color: 0x38bdf8,
+          transparent: true,
+          opacity: 0.08,
+          blending: THREE.AdditiveBlending,
+          side: THREE.BackSide
+        });
+        earthGroup.add(new THREE.Mesh(atmoGeo, atmoMat));
+
+        const wireMat = new THREE.LineBasicMaterial({ color: 0x1e293b, transparent: true, opacity: 0.75 });
+        const wireGeo = new THREE.EdgesGeometry(new THREE.SphereGeometry(earthRadius, 18, 18));
         earthGroup.add(new THREE.LineSegments(wireGeo, wireMat));
 
         const texLoader = new THREE.TextureLoader();
         texLoader.crossOrigin = 'anonymous';
         texLoader.load('https://unpkg.com/three-globe/example/img/earth-topology.png', (texture) => {
-          const mapMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, color: 0x38bdf8 });
-          const mapMesh = new THREE.Mesh(new THREE.SphereGeometry(earthRadius + 0.02, 32, 32), mapMat);
+          const mapMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, color: 0x38bdf8 });
+          const mapMesh = new THREE.Mesh(new THREE.SphereGeometry(earthRadius + 0.02, 36, 36), mapMat);
           mapMesh.rotation.y = -Math.PI / 2; 
           earthGroup.add(mapMesh);
         });
 
-        const eqGeo = new THREE.RingGeometry(earthRadius + 0.25, earthRadius + 0.5, 64);
+        const eqGeo = new THREE.RingGeometry(earthRadius + 0.25, earthRadius + 0.45, 64);
         const eqMat = new THREE.MeshBasicMaterial({ color: 0x334155, side: THREE.DoubleSide });
         const equator = new THREE.Mesh(eqGeo, eqMat);
         equator.rotation.x = Math.PI / 2;
@@ -1021,7 +1471,7 @@
         const cz = earthRadius * Math.cos(latRad) * Math.cos(lonRad);
         const padPos = new THREE.Vector3(cx, cy, cz);
         
-        const padMesh = new THREE.Mesh(new THREE.SphereGeometry(0.375, 8, 8), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+        const padMesh = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 12), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
         padMesh.position.copy(padPos);
         earthGroup.add(padMesh);
 
@@ -1046,11 +1496,12 @@
           const a = t_val * insertionAngle;
           ascentPoints.push(new THREE.Vector3(0, -alt * Math.sin(a), alt * Math.cos(a)));
         }
-        const ascentGeo = new THREE.BufferGeometry().setFromPoints(ascentPoints);
-        const ascentMat = new THREE.LineDashedMaterial({ color: 0x22d3ee, dashSize: 0.2, gapSize: 0.2, transparent: true, opacity: 0.7 });
-        const ascentLine = new THREE.Line(ascentGeo, ascentMat);
-        ascentLine.computeLineDistances();
-        orbitGroup.add(ascentLine);
+        const ascentCurve = new THREE.CatmullRomCurve3(ascentPoints);
+        const ascentTube = new THREE.Mesh(
+          new THREE.TubeGeometry(ascentCurve, 48, 0.08, 8, false),
+          new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.85 })
+        );
+        orbitGroup.add(ascentTube);
 
         const pathPoints = [];
         for (let i = 0; i <= 128; i++) {
@@ -1058,7 +1509,7 @@
           pathPoints.push(new THREE.Vector3(0, -orbitRadius * Math.sin(a), orbitRadius * Math.cos(a)));
         }
         const lineGeo = new THREE.BufferGeometry().setFromPoints(pathPoints);
-        const lineMat = new THREE.LineDashedMaterial({ color: 0xc026d3, transparent: true, opacity: 0.4, dashSize: 0.5, gapSize: 0.5 });
+        const lineMat = new THREE.LineDashedMaterial({ color: 0xc026d3, transparent: true, opacity: 0.55, dashSize: 0.5, gapSize: 0.4 });
         const orbitLine = new THREE.Line(lineGeo, lineMat);
         orbitLine.computeLineDistances();
         orbitGroup.add(orbitLine);
@@ -1066,13 +1517,13 @@
         const rocketPivot = new THREE.Group();
         orbitGroup.add(rocketPivot);
 
-        const { group: rocketMesh, stage1, plume } = createTelemetryRocket(0.25, rocket.missionType === 'heavy' ? 'heavy' : 'medium');
+        const { group: rocketMesh, stage1, plume, s2Plume } = createTelemetryRocket(0.25, rocket.missionType === 'Medium Lift' ? 'heavy' : 'medium');
         rocketPivot.add(rocketMesh);
 
-        const shadowGeo = new THREE.SphereGeometry(0.15, 8, 8);
+        const shadowGeo = new THREE.SphereGeometry(0.18, 10, 10);
         const shadowMat = new THREE.MeshBasicMaterial({ color: 0xf472b6 }); 
         const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
-        shadowMesh.position.set(0, 0, earthRadius + 0.05); 
+        shadowMesh.position.set(0, 0, earthRadius + 0.06); 
         rocketPivot.add(shadowMesh);
 
         camera.position.set(-50, 45, 35);
@@ -1085,6 +1536,7 @@
           rocketMesh, 
           stage1, 
           plume, 
+          s2Plume,
           tMeco,
           insertionAngle, 
           autoOrbitAngle: insertionAngle, 
@@ -1092,7 +1544,9 @@
           padPos,
           lastT: 0,
           isTransitioning: false,
-          isFlightPlaying: isFlightPlaying
+          isFlightPlaying: isFlightPlaying,
+          camera,
+          controls
         };
 
         const breakTransition = () => { if (sceneRef.current) sceneRef.current.isTransitioning = false; };
@@ -1107,17 +1561,22 @@
           
           if (sceneRef.current.rocketPivot) {
              const t = Math.max(0, Math.min(1, progressRef.current / 100));
-             const { rocketPivot, rocketMesh, insertionAngle, earthRadius, padPos, plume, stage1, tMeco, lastT } = sceneRef.current;
+             const { rocketPivot, rocketMesh, insertionAngle, earthRadius, padPos, plume, s2Plume, stage1, tMeco, lastT } = sceneRef.current;
              
              if (lastT >= tMeco) {
                const dt = lastT - tMeco;
                plume.scale.setScalar(0.001);
+               if (s2Plume) {
+                 s2Plume.visible = lastT < 1.0;
+                 s2Plume.scale.setScalar(0.85 + Math.sin(Date.now() * 0.025) * 0.25);
+               }
                stage1.position.y = -dt * 15; 
                stage1.position.z = -dt * dt * 100; 
                stage1.visible = dt < 0.12; 
              } else {
-               const p = 0.8 + Math.sin(Date.now() * 0.015) * 0.3;
+               const p = 0.85 + Math.sin(Date.now() * 0.018) * 0.25;
                plume.scale.setScalar(p);
+               if (s2Plume) s2Plume.visible = false;
                stage1.position.set(0, 0, 0);
                stage1.visible = true;
              }
@@ -1146,12 +1605,15 @@
              if (sceneRef.current.lastT >= 1 && t < 1) sceneRef.current.isTransitioning = true;
              if (t === 0 && sceneRef.current.lastT > 0) sceneRef.current.isTransitioning = true;
 
-             if (t < 1) {
+             const mode = globeCamModeRef.current;
+             const useChase = (mode === 'chase') || (mode === 'auto' && t >= 1);
+
+             if (!useChase) {
                  controls.enabled = true;
                  dummyControls.enabled = false;
                  
                  camera.up.lerp(new THREE.Vector3(0, 1, 0), 0.1);
-                 controls.maxPolarAngle = Math.PI / 2 - 0.05;
+                 controls.maxPolarAngle = Math.PI;
 
                  if (sceneRef.current.isTransitioning) {
                      const relativeOffset = new THREE.Vector3(-50, 45, 35).sub(padPos);
@@ -1195,7 +1657,7 @@
              sceneRef.current.lastT = t;
           }
           
-          const minCamRadius = 25.5; 
+          const minCamRadius = 25.6; 
           if (camera.position.length() < minCamRadius) {
               camera.position.copy(camera.position.clone().normalize().multiplyScalar(minCamRadius));
           }
@@ -1236,7 +1698,31 @@
         };
       }, [rocket.id]); 
 
-      return <div ref={mountRef} className="w-full h-[550px]" />;
+      return (
+        <div className="relative w-full h-[550px]">
+          <div className="absolute top-3 right-3 z-20 flex gap-1.5 bg-[#091321]/85 backdrop-blur-md p-1.5 rounded-xl border border-slate-600/30 shadow-2xl">
+            <button
+              onClick={() => { setGlobeCamMode('auto'); if (sceneRef.current) sceneRef.current.isTransitioning = true; }}
+              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${globeCamMode === 'auto' ? 'bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30' : 'text-slate-400 hover:text-white'}`}
+            >
+              AUTO CAM
+            </button>
+            <button
+              onClick={() => { setGlobeCamMode('chase'); if (sceneRef.current) sceneRef.current.isTransitioning = true; }}
+              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${globeCamMode === 'chase' ? 'bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30' : 'text-slate-400 hover:text-white'}`}
+            >
+              CHASE CAM
+            </button>
+            <button
+              onClick={() => { setGlobeCamMode('globe'); if (sceneRef.current) sceneRef.current.isTransitioning = true; }}
+              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${globeCamMode === 'globe' ? 'bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30' : 'text-slate-400 hover:text-white'}`}
+            >
+              FREE GLOBE
+            </button>
+          </div>
+          <div ref={mountRef} className="w-full h-full" />
+        </div>
+      );
     }
 
     const IconMap = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>;
@@ -1276,6 +1762,7 @@
       const [distanceKm, setDistanceKm] = useState(4.2);
       const [gpsActive, setGpsActive] = useState(false);
       const [gpsCoords, setGpsCoords] = useState(null);
+      const [gpsNotice, setGpsNotice] = useState(null);
       const [buildYear, setBuildYear] = useState(2032);
       
       const [flightProgress, setFlightProgress] = useState(0);
@@ -1329,7 +1816,6 @@
               isPositive: isPos
             });
           } catch (err) {
-            // Graceful fail to 0.40c snapshot
             console.warn("Stock fetch failed via CORS proxy, using snapshot fallback.");
           }
         };
@@ -1381,8 +1867,9 @@
       }, [isFlightPlaying, isSuborbital]);
 
       const requestGPS = () => {
+        setGpsNotice(null);
         if (!navigator.geolocation) {
-          alert("Geolocation is not supported by your browser.");
+          setGpsNotice("Geolocation is not supported by your browser.");
           return;
         }
         navigator.geolocation.getCurrentPosition(
@@ -1393,7 +1880,7 @@
             setGpsActive(true);
           },
           (err) => {
-            alert("Could not retrieve GPS: " + err.message);
+            setGpsNotice("Could not retrieve GPS: " + err.message);
           }
         );
       };
@@ -1491,7 +1978,7 @@
               <div className="space-y-6">
                 <div className="bg-[#111a28] border border-[#233247] rounded-2xl p-6 shadow-xl">
                   <h2 className="text-xs font-mono uppercase text-cyan-400 mb-2 font-bold tracking-wider">Canso Site Master Plan (2022 - 2032)</h2>
-                  <p className="text-sm text-slate-400 mb-5">Topographic expansion mapping 4 commercial launch pads. Click and drag to orbit. Scroll to zoom.</p>
+                  <p className="text-sm text-slate-400 mb-5">Topographic expansion mapping 4 commercial launch pads. Click directly on any 3D pad or building to focus, or drag to orbit.</p>
                   
                   <div className="relative rounded-xl overflow-hidden border border-[#233247] shadow-inner bg-[#091321]">
                     <EnhancedThreeViewer 
@@ -1507,7 +1994,7 @@
                       }}
                     />
 
-                    <div className="absolute bottom-4 left-4 right-4 p-4 bg-[#091321]/70 backdrop-blur-md rounded-xl border border-slate-600/30 shadow-2xl">
+                    <div className="absolute bottom-4 left-4 right-4 p-4 bg-[#091321]/75 backdrop-blur-md rounded-xl border border-slate-600/30 shadow-2xl">
                       <div className="flex justify-between items-center mb-3">
                         <span className="text-xs font-mono text-slate-300">Scrub Infrastructure Timeline</span>
                         <span className="text-sm font-mono text-cyan-400 font-bold bg-slate-900 border border-slate-700 px-3 py-1 rounded-lg">Year: {buildYear}</span>
@@ -1577,26 +2064,21 @@
                     
                     <div className="w-full flex justify-center items-center py-4 border border-[#233247] bg-[#091321] rounded-xl relative overflow-hidden h-[120px] shadow-inner mb-4">
                        <svg viewBox="0 0 100 400" className="h-[90px] w-auto drop-shadow-[0_0_8px_rgba(52,211,153,0.2)]">
-                          {/* Grid background */}
                           <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
                             <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#1e293b" strokeWidth="0.5"/>
                           </pattern>
                           <rect width="100" height="400" fill="url(#grid)" />
                           
-                          {/* Dynamic Payload Fill - Moved down into body */}
                           <g>
                             <rect x="37" y={220 - (100 * (payloadPercent / 100))} width="26" height={100 * (payloadPercent / 100)} fill="#34d399" opacity="0.6" />
                           </g>
 
-                          {/* Rocket Wireframe */}
                           <polygon points="50,10 65,50 65,300 75,340 75,360 65,360 65,340 35,340 35,360 25,360 25,340 35,300 35,50" fill="none" stroke="#22d3ee" strokeWidth="2" strokeDasharray="4 2" />
                           
-                          {/* Cargo Bay Boundary Lines */}
                           <line x1="35" y1="120" x2="65" y2="120" stroke="#22d3ee" strokeWidth="2" />
                           <line x1="35" y1="220" x2="65" y2="220" stroke="#22d3ee" strokeWidth="1" strokeDasharray="2 2" />
                           <text x="50" y="170" fill="#22d3ee" fontSize="8" textAnchor="middle" className="font-mono">CARGO</text>
 
-                          {/* Engine detail */}
                           <polygon points="40,360 60,360 65,390 35,390" fill="none" stroke="#94a3b8" strokeWidth="2" />
                        </svg>
                     </div>
@@ -1729,8 +2211,8 @@
                     {flightView === 'global' && !isSuborbital && <TelemetryOrbitViewer3D rocket={activeRocket} progress={flightProgress} isFlightPlaying={isFlightPlaying} />}
 
                     {/* DYNAMIC ORBIT HANDOFF HUD */}
-                    <div className="absolute top-3 left-3 right-3 flex flex-wrap gap-2 pointer-events-none z-20">
-                      <div className={`bg-[#091321]/80 backdrop-blur-md border rounded-lg p-2.5 flex flex-col pointer-events-auto min-w-[90px] transition-all duration-500 ${isOrbitAchieved && flightView === 'global' ? 'shadow-[0_0_15px_rgba(52,211,153,0.15)] border-emerald-500/40' : 'border-slate-600/30 shadow-2xl'}`}>
+                    <div className="absolute top-3 left-3 flex flex-wrap gap-2 pointer-events-none z-20">
+                      <div className={`bg-[#091321]/85 backdrop-blur-md border rounded-lg p-2.5 flex flex-col pointer-events-auto min-w-[90px] transition-all duration-500 ${isOrbitAchieved && flightView === 'global' ? 'shadow-[0_0_15px_rgba(52,211,153,0.15)] border-emerald-500/40' : 'border-slate-600/30 shadow-2xl'}`}>
                         <span className={`text-[9px] font-mono mb-0.5 ${isOrbitAchieved && flightView === 'global' ? 'text-emerald-500 font-bold' : 'text-slate-400'}`}>
                           {isOrbitAchieved && flightView === 'global' ? 'ORBITAL ALT' : 'EST. ALTITUDE'}
                         </span>
@@ -1739,7 +2221,7 @@
                         </span>
                       </div>
                       
-                      <div className={`bg-[#091321]/80 backdrop-blur-md border rounded-lg p-2.5 flex flex-col pointer-events-auto min-w-[90px] transition-all duration-500 ${isOrbitAchieved && flightView === 'global' ? 'shadow-[0_0_15px_rgba(52,211,153,0.15)] border-emerald-500/40' : 'border-slate-600/30 shadow-2xl'}`}>
+                      <div className={`bg-[#091321]/85 backdrop-blur-md border rounded-lg p-2.5 flex flex-col pointer-events-auto min-w-[90px] transition-all duration-500 ${isOrbitAchieved && flightView === 'global' ? 'shadow-[0_0_15px_rgba(52,211,153,0.15)] border-emerald-500/40' : 'border-slate-600/30 shadow-2xl'}`}>
                         <span className={`text-[9px] font-mono mb-0.5 ${isOrbitAchieved && flightView === 'global' ? 'text-emerald-500 font-bold' : 'text-slate-400'}`}>
                           {isOrbitAchieved && flightView === 'global' ? 'ORBITAL VEL' : 'EST. VELOCITY'}
                         </span>
@@ -1756,9 +2238,8 @@
                       )}
                     </div>
 
-                    <div className="absolute bottom-4 left-4 right-4 p-4 bg-[#091321]/70 backdrop-blur-md rounded-xl border border-slate-600/30 shadow-2xl">
+                    <div className="absolute bottom-4 left-4 right-4 p-4 bg-[#091321]/75 backdrop-blur-md rounded-xl border border-slate-600/30 shadow-2xl">
                       <div className="flex justify-between items-center mb-4 gap-2">
-                        {/* COMPACT CONTROL SUITE */}
                         <div className="flex bg-slate-900 border border-slate-700 rounded-lg overflow-hidden shadow-lg flex-shrink-0">
                           <button 
                             onClick={() => {
@@ -1805,7 +2286,6 @@
                         className="w-full accent-fuchsia-500 h-2 bg-slate-800 rounded-lg cursor-pointer relative z-10"
                       />
                       
-                      {/* DYNAMIC POSITIONED MILESTONE LABELS */}
                       <div className="relative w-full h-4 text-[10px] sm:text-xs font-mono text-slate-400 mt-4 px-1">
                         <span 
                           className={`absolute top-0 -translate-x-1/2 whitespace-nowrap ${flightProgress >= (trajData.tMaxQ * 100) ? "text-fuchsia-400 font-bold" : ""}`}
@@ -1849,6 +2329,11 @@
                       <h2 className="text-xs font-mono uppercase text-cyan-400 font-bold tracking-wider">Observer Distance</h2>
                       <button onClick={requestGPS} className="text-xs bg-cyan-400/10 hover:bg-cyan-400/20 text-cyan-400 border border-cyan-400/30 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 font-bold">📍 Live GPS</button>
                     </div>
+                    {gpsNotice && (
+                      <div className="mb-3 p-2.5 rounded-lg bg-amber-950/40 border border-amber-500/40 text-amber-300 text-xs font-mono">
+                        {gpsNotice}
+                      </div>
+                    )}
                     <div className="space-y-4">
                       <div>
                         <div className="flex justify-between items-baseline mb-2">
