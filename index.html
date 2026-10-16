@@ -46,15 +46,62 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useRef, useMemo } = React;
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
     const CANSO_PAD = { lat: 45.3056, lng: -60.9814, name: "Spaceport Nova Scotia (LC-1)" };
 
     const ROCKET_MANIFEST = [
-      { id: "barracuda-4", name: "Barracuda (Flight 4)", operator: "T-Minus Engineering", propellantTons: 0.6, payloadKg: 15, orbit: "Suborbital Hypersonic (~80-100 km)", targetDate: "October 2026", status: "Pad Readiness Review", missionType: "Suborbital", baseCost: 150000, pricePerKg: 20000 },
-      { id: "aurora-8", name: "Aurora-8 (Orbital Demo)", operator: "Reaction Dynamics (RDX)", propellantTons: 14, payloadKg: 200, orbit: "SSO / Polar LEO (500 km)", targetDate: "Q3 2028", status: "Launch Agreement", missionType: "Orbital", baseCost: 4500000, pricePerKg: 25000 },
-      { id: "spectrum-1", name: "Spectrum (Dedicated Complex)", operator: "Isar Aerospace", propellantTons: 58, payloadKg: 1000, orbit: "Polar / SSO Orbit (Up to 98.1°)", targetDate: "2028", status: "Statement of Work Executed", missionType: "Orbital", baseCost: 15000000, pricePerKg: 25000 },
-      { id: "c4m-baseline", name: "Cyclone-4M (MLS Standard)", operator: "Maritime Launch Services", propellantTons: 260, payloadKg: 5000, orbit: "LEO / SSO (87.9° - 98.1°)", targetDate: "Baseline Design", status: "Max Hazard Envelope", missionType: "Medium Lift", baseCost: 45000000, pricePerKg: 12000 }
+      { id: "barracuda-4", name: "Barracuda (Flight 4)", operator: "T-Minus Engineering", propellantTons: 0.6, payloadKg: 15, orbit: "Suborbital Hypersonic (~80-100 km)", targetDate: "October 2026", status: "Pad Readiness Review", missionType: "Suborbital", baseCost: 120000, rangeFee: 35000, insuranceCost: 15000, propellantType: "Solid Composite (APCP)", fuelCostPerKg: 14.0, dryMassKg: 45, isp: 250, pricePerKg: 18000 },
+      { id: "aurora-8", name: "Aurora-8 (Orbital Demo)", operator: "Reaction Dynamics (RDX)", propellantTons: 14, payloadKg: 200, orbit: "SSO / Polar LEO (500 km)", targetDate: "Q3 2028", status: "Launch Agreement", missionType: "Orbital", baseCost: 3200000, rangeFee: 450000, insuranceCost: 350000, propellantType: "Hybrid (LOX / Solid Polymer)", fuelCostPerKg: 2.2, dryMassKg: 1450, isp: 315, pricePerKg: 24000 },
+      { id: "spectrum-1", name: "Spectrum (Dedicated Complex)", operator: "Isar Aerospace", propellantTons: 58, payloadKg: 1000, orbit: "Polar / SSO Orbit (Up to 98.1°)", targetDate: "2028", status: "Statement of Work Executed", missionType: "Orbital", baseCost: 11500000, rangeFee: 1100000, insuranceCost: 900000, propellantType: "LOX / Propane", fuelCostPerKg: 1.4, dryMassKg: 4800, isp: 340, pricePerKg: 18500 },
+      { id: "c4m-baseline", name: "Cyclone-4M (MLS Standard)", operator: "Maritime Launch Services", propellantTons: 260, payloadKg: 5000, orbit: "LEO / SSO (87.9° - 98.1°)", targetDate: "Baseline Design", status: "Max Hazard Envelope", missionType: "Medium Lift", baseCost: 38000000, rangeFee: 2800000, insuranceCost: 2200000, propellantType: "LOX / RP-1 + Hypergolic Upper", fuelCostPerKg: 2.6, dryMassKg: 14500, isp: 335, pricePerKg: 11000 }
+    ];
+
+    const PAYLOAD_CLASSES = [
+      {
+        id: "cubesat",
+        name: "3U–16U CubeSat Rideshare",
+        unitMassKg: 12,
+        pricePerKg: 26000,
+        dispenserCostPerUnit: 18000,
+        hardwareValueM: 0.45,
+        targetOrbit: "500 km SSO",
+        examples: "Spire Lemur, Planet Dove, University payloads",
+        desc: "Standardized containerized nanosatellites deployed via spring-loaded QuadPack/Exolaunch dispensers. Highest $/kg yield for launch providers due to turnkey integration and rideshare aggregation."
+      },
+      {
+        id: "microsat",
+        name: "150 kg Optical / IoT Microsat",
+        unitMassKg: 150,
+        pricePerKg: 19500,
+        dispenserCostPerUnit: 85000,
+        hardwareValueM: 4.5,
+        targetOrbit: "550 km Polar / SSO",
+        examples: "GHGSat Emissions Monitor, Kepler Comms, Hawkeye 360",
+        desc: "Small constellation satellites mounted on ESPA rings or multi-payload adapters. Balances flexible orbital insertion with competitive cluster pricing."
+      },
+      {
+        id: "sar-smallsat",
+        name: "450 kg Commercial SAR / Defense",
+        unitMassKg: 450,
+        pricePerKg: 15500,
+        dispenserCostPerUnit: 160000,
+        hardwareValueM: 22.0,
+        targetOrbit: "580 km Dawn-Dusk SSO",
+        examples: "MDA Chorus C-Band, Iceye SAR, Capella Space",
+        desc: "High-power synthetic aperture radar & sovereign maritime domain awareness satellites requiring precise polar or dawn-dusk sun-synchronous injection."
+      },
+      {
+        id: "dedicated-flagship",
+        name: "1,250 kg Dedicated Earth Observation",
+        unitMassKg: 1250,
+        pricePerKg: 11500,
+        dispenserCostPerUnit: 310000,
+        hardwareValueM: 115.0,
+        targetOrbit: "620 km Dedicated Polar",
+        examples: "RADARSAT Constellation Class, CSA Sovereign Science",
+        desc: "Primary flagship spacecraft commanding exclusive fairing volume and custom orbit RAAN/inclination. Lowest $/kg bulk rate, but carries strict mission assurance fees."
+      }
     ];
 
     const SPACEPORT_FACILITIES = [
@@ -1793,14 +1840,31 @@
       const [isFlightPlaying, setIsFlightPlaying] = useState(false);
       const [flightView, setFlightView] = useState('2d'); 
 
-      const [payloadPercent, setPayloadPercent] = useState(100);
+      const [payloadPercent, setPayloadPercent] = useState(85);
+      const [selectedPayloadClassId, setSelectedPayloadClassId] = useState('microsat');
+      const [annualCadence, setAnnualCadence] = useState(6);
+      const [tickerSymbol, setTickerSymbol] = useState('MAXQ.NE');
       
-      // Fixed Initial Snapshot State reflecting roughly 0.40 CAD market close
-      const [stockData, setStockData] = useState({ price: "0.400", change: "+0.000", percent: "0.00", vol: "215.3K", isPositive: true });
+      const [stockData, setStockData] = useState({
+        price: "0.400",
+        change: "+0.015",
+        percent: "+3.90",
+        vol: "215.3K",
+        high: "0.415",
+        low: "0.385",
+        currency: "CAD",
+        exchange: "Cboe CA",
+        isPositive: true,
+        source: "CACHED SNAPSHOT",
+        lastUpdated: "Market Close",
+        sparkline: [0.38, 0.385, 0.39, 0.385, 0.395, 0.40, 0.405, 0.40]
+      });
+      const [isFetchingStock, setIsFetchingStock] = useState(false);
 
       const aboutModalRef = useRef(null);
 
       const activeRocket = ROCKET_MANIFEST.find(r => r.id === selectedRocketId) || ROCKET_MANIFEST[0];
+      const activePayloadClass = PAYLOAD_CLASSES.find(p => p.id === selectedPayloadClassId) || PAYLOAD_CLASSES[0];
       const radii = calculateRadii(activeRocket.propellantTons);
       const status = getSafetyStatus(distanceKm, radii);
       const canvasRef = useRef(null);
@@ -1811,43 +1875,74 @@
 
       const orbitalRockets = useMemo(() => ROCKET_MANIFEST.filter(r => r.missionType === 'Orbital' || r.missionType === 'Medium Lift'), []);
 
-      // Live Ticker Fetch Logic
-      useEffect(() => {
-        if (activeTab !== 'economics') return;
-        
-        const fetchStock = async () => {
+      // Resilient Multi-Proxy Real-World Share Price Feed (MAXQ.NE Cboe Canada & MAXQF OTCQB)
+      const fetchRealWorldStock = useCallback(async (symbol = tickerSymbol) => {
+        setIsFetchingStock(true);
+        const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=15m&range=5d`;
+        const proxies = [
+          { name: "LIVE • CORSPROXY", buildUrl: (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`, unwrap: async (r) => r.json() },
+          { name: "LIVE • ALLORIGINS", buildUrl: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`, unwrap: async (r) => r.json() },
+          { name: "LIVE • CODETABS", buildUrl: (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`, unwrap: async (r) => r.json() }
+        ];
+
+        for (const proxy of proxies) {
           try {
-            const url = encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/MAXQ.NE?interval=1d&range=1d');
-            const res = await fetch(`https://api.allorigins.win/get?url=${url}`);
-            const data = await res.json();
-            const parsed = JSON.parse(data.contents);
-            const meta = parsed.chart.result[0].meta;
-            
-            const price = meta.regularMarketPrice;
-            const prev = meta.previousClose || price;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5500);
+            const res = await fetch(proxy.buildUrl(yahooUrl), { signal: controller.signal });
+            clearTimeout(timeout);
+            if (!res.ok) continue;
+
+            const parsed = await proxy.unwrap(res);
+            const result = parsed?.chart?.result?.[0];
+            if (!result || !result.meta) continue;
+
+            const meta = result.meta;
+            const quotes = result.indicators?.quote?.[0] || {};
+            const closes = (quotes.close || []).filter(v => typeof v === 'number' && !isNaN(v));
+
+            const price = meta.regularMarketPrice ?? closes[closes.length - 1] ?? 0.40;
+            const prev = meta.chartPreviousClose ?? meta.previousClose ?? (closes[0] || price);
             const diff = price - prev;
-            const pct = (diff / prev) * 100;
+            const pct = prev > 0 ? (diff / prev) * 100 : 0;
             const isPos = diff >= 0;
-            
-            const vol = meta.regularMarketVolume || 0;
-            const volStr = vol > 1000000 ? (vol/1000000).toFixed(1) + 'M' : (vol/1000).toFixed(1) + 'K';
+
+            const vol = meta.regularMarketVolume || (quotes.volume || []).reduce((acc, v) => acc + (v || 0), 0) || 0;
+            const volStr = vol >= 1000000 ? (vol / 1000000).toFixed(2) + 'M' : vol >= 1000 ? (vol / 1000).toFixed(1) + 'K' : String(vol);
+
+            const dayHigh = meta.regularMarketDayHigh ?? (closes.length ? Math.max(...closes) : price);
+            const dayLow = meta.regularMarketDayLow ?? (closes.length ? Math.min(...closes) : price);
+            const spark = closes.length >= 6 ? closes.slice(-24) : [prev, price];
 
             setStockData({
               price: price.toFixed(3),
               change: (isPos ? '+' : '') + diff.toFixed(3),
               percent: (isPos ? '+' : '') + pct.toFixed(2),
               vol: volStr,
-              isPositive: isPos
+              high: dayHigh.toFixed(3),
+              low: dayLow.toFixed(3),
+              currency: meta.currency || (symbol.endsWith('.NE') ? 'CAD' : 'USD'),
+              exchange: symbol.endsWith('.NE') ? 'Cboe CA' : 'OTCQB',
+              isPositive: isPos,
+              source: proxy.name,
+              lastUpdated: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+              sparkline: spark
             });
-          } catch (err) {
-            console.warn("Stock fetch failed via CORS proxy, using snapshot fallback.");
+            setIsFetchingStock(false);
+            return;
+          } catch (e) {
+            // Try next proxy
           }
-        };
-        
-        fetchStock();
-        const interval = setInterval(fetchStock, 60000); 
+        }
+        setIsFetchingStock(false);
+      }, [tickerSymbol]);
+
+      useEffect(() => {
+        if (activeTab !== 'economics') return;
+        fetchRealWorldStock(tickerSymbol);
+        const interval = setInterval(() => fetchRealWorldStock(tickerSymbol), 60000);
         return () => clearInterval(interval);
-      }, [activeTab]);
+      }, [activeTab, tickerSymbol, fetchRealWorldStock]);
 
       useEffect(() => {
         if (flightProgress < 100) hasAutoSwitched.current = false;
@@ -2022,139 +2117,354 @@
               </div>
             )}
 
-            {activeTab === 'economics' && (
-              <div className="space-y-6">
-                {/* MARKET TICKER */}
-                <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-[#0d1522] border border-[#233247] p-4 rounded-2xl shadow-xl">
-                  <div className="flex items-center gap-4 w-full sm:w-auto">
-                    <div className="bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg flex flex-col min-w-[80px]">
-                      <span className="text-[9px] font-bold text-slate-500 font-mono tracking-widest">NEO</span>
-                      <span className="text-sm font-bold text-white tracking-widest">MAXQ.NE</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className={`text-xl font-mono font-bold ${stockData.isPositive ? 'text-emerald-400' : 'text-red-400'}`}>${stockData.price}</span>
-                      <span className={`text-[10px] font-mono font-bold ${stockData.isPositive ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {stockData.change} ({stockData.percent}%)
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex gap-6 items-center text-xs font-mono text-slate-400 w-full sm:w-auto justify-between sm:justify-end">
-                    <div className="flex flex-col"><span className="text-[9px] uppercase text-slate-500">Volume</span><span className="text-white font-semibold">{stockData.vol}</span></div>
-                    <div className="flex flex-col"><span className="text-[9px] uppercase text-slate-500">VWAP</span><span className="text-white font-semibold">${stockData.price}</span></div>
-                    <div className="flex flex-col hidden md:flex"><span className="text-[9px] uppercase text-slate-500">MACD (12,26,9)</span>
-                      <div className="flex items-end gap-0.5 h-4 mt-1">
-                        <div className="w-1 bg-red-500 h-1"></div>
-                        <div className="w-1 bg-red-400 h-2"></div>
-                        <div className="w-1 bg-emerald-500 h-3"></div>
-                        <div className="w-1 bg-emerald-400 h-4"></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            {activeTab === 'economics' && (() => {
+              const manifestedMassKg = Math.round(activeRocket.payloadKg * (payloadPercent / 100));
+              const effectivePricePerKg = isSuborbital ? activeRocket.pricePerKg : activePayloadClass.pricePerKg;
+              const satelliteCount = isSuborbital ? 1 : Math.max(1, Math.floor(manifestedMassKg / activePayloadClass.unitMassKg));
+              const dispenserIntegrationCost = isSuborbital ? 8000 : satelliteCount * activePayloadClass.dispenserCostPerUnit;
+              const propellantCost = Math.round(activeRocket.propellantTons * 1000 * activeRocket.fuelCostPerKg);
+              const totalMissionCost = activeRocket.baseCost + activeRocket.rangeFee + activeRocket.insuranceCost + dispenserIntegrationCost + propellantCost;
+              const grossRevenue = Math.round(manifestedMassKg * effectivePricePerKg);
+              const netMargin = grossRevenue - totalMissionCost;
+              const marginPercent = grossRevenue > 0 ? ((netMargin / grossRevenue) * 100).toFixed(1) : "0.0";
+              const breakEvenKg = Math.min(activeRocket.payloadKg, Math.ceil(totalMissionCost / effectivePricePerKg));
+              const breakEvenPct = Math.min(100, Math.round((breakEvenKg / activeRocket.payloadKg) * 100));
+              const propellantSharePct = ((propellantCost / totalMissionCost) * 100).toFixed(2);
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                  {/* LEFT COL: Blueprint */}
-                  <div className="lg:col-span-4 bg-[#111a28] border border-[#233247] rounded-2xl p-6 shadow-xl flex flex-col">
-                    <h2 className="text-xs font-mono uppercase text-emerald-400 mb-4 font-bold tracking-wider">Payload Integrator</h2>
-                    <select 
-                      value={selectedRocketId} 
-                      onChange={(e) => setSelectedRocketId(e.target.value)} 
-                      className="w-full bg-slate-900 border border-[#233247] rounded-xl p-3 text-sm text-white font-medium focus:ring-2 focus:ring-emerald-400 focus:outline-none mb-4"
-                    >
-                      {ROCKET_MANIFEST.map(r => <option key={r.id} value={r.id}>{r.name} • {r.operator}</option>)}
-                    </select>
-                    
-                    <div className="w-full flex justify-center items-center py-4 border border-[#233247] bg-[#091321] rounded-xl relative overflow-hidden h-[120px] shadow-inner mb-4">
-                       <svg viewBox="0 0 100 400" className="h-[90px] w-auto drop-shadow-[0_0_8px_rgba(52,211,153,0.2)]">
-                          <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
-                            <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#1e293b" strokeWidth="0.5"/>
-                          </pattern>
-                          <rect width="100" height="400" fill="url(#grid)" />
-                          
-                          <g>
-                            <rect x="37" y={220 - (100 * (payloadPercent / 100))} width="26" height={100 * (payloadPercent / 100)} fill="#34d399" opacity="0.6" />
-                          </g>
+              // Tsiolkovsky Rocket Equation & Mass Fraction metrics
+              const wetMassKg = (activeRocket.propellantTons * 1000) + activeRocket.dryMassKg + manifestedMassKg;
+              const finalMassKg = activeRocket.dryMassKg + manifestedMassKg;
+              const deltaV = Math.round(activeRocket.isp * 9.80665 * Math.log(wetMassKg / finalMassKg));
+              const payloadFractionPct = ((manifestedMassKg / wetMassKg) * 100).toFixed(2);
 
-                          <polygon points="50,10 65,50 65,300 75,340 75,360 65,360 65,340 35,340 35,360 25,360 25,340 35,300 35,50" fill="none" stroke="#22d3ee" strokeWidth="2" strokeDasharray="4 2" />
-                          
-                          <line x1="35" y1="120" x2="65" y2="120" stroke="#22d3ee" strokeWidth="2" />
-                          <line x1="35" y1="220" x2="65" y2="220" stroke="#22d3ee" strokeWidth="1" strokeDasharray="2 2" />
-                          <text x="50" y="170" fill="#22d3ee" fontSize="8" textAnchor="middle" className="font-mono">CARGO</text>
+              // Spaceport Operator (MLS) Annual Cadence Economics
+              const spaceportFixedOpex = 6800000; // Annual site lease, range telemetry, security, staff
+              const spaceportRevenuePerLaunch = activeRocket.rangeFee + Math.round(grossRevenue * 0.05); // Range fee + payload processing services
+              const annualSpaceportRev = spaceportRevenuePerLaunch * annualCadence;
+              const annualSpaceportEbitda = annualSpaceportRev - spaceportFixedOpex;
 
-                          <polygon points="40,360 60,360 65,390 35,390" fill="none" stroke="#94a3b8" strokeWidth="2" />
-                       </svg>
-                    </div>
-                    
-                    <div>
-                       <div className="flex justify-between items-baseline mb-2">
-                         <span className="text-xs text-slate-400">Manifest Load:</span>
-                         <span className="text-sm font-mono font-bold text-emerald-400">{payloadPercent}%</span>
-                       </div>
-                       <input 
-                         type="range" 
-                         min="0" 
-                         max="100" 
-                         step="1" 
-                         value={payloadPercent} 
-                         onChange={(e) => setPayloadPercent(parseInt(e.target.value))} 
-                         className="w-full accent-emerald-400 h-2 bg-slate-800 rounded-lg cursor-pointer" 
-                       />
-                       <div className="text-center mt-3 text-[10px] font-mono text-slate-500">
-                         {Math.round(activeRocket.payloadKg * (payloadPercent / 100)).toLocaleString()} kg / {activeRocket.payloadKg.toLocaleString()} kg Total Capacity
-                       </div>
-                    </div>
-                  </div>
+              // Sparkline path generator
+              const sparkPts = stockData.sparkline || [0.38, 0.40];
+              const sMin = Math.min(...sparkPts);
+              const sMax = Math.max(...sparkPts);
+              const sRange = Math.max(sMax - sMin, 0.005);
+              const sparkSvg = sparkPts.map((v, idx) => {
+                const x = (idx / Math.max(1, sparkPts.length - 1)) * 120;
+                const y = 30 - ((v - sMin) / sRange) * 24;
+                return `${x.toFixed(1)},${y.toFixed(1)}`;
+              }).join(' ');
 
-                  {/* RIGHT COL: Financials */}
-                  <div className="lg:col-span-8 flex flex-col gap-6">
-                    <div className="bg-[#111a28] border border-[#233247] rounded-2xl p-6 shadow-xl flex-1 flex flex-col justify-center">
-                      <h2 className="text-xs font-mono uppercase text-emerald-400 mb-6 font-bold tracking-wider">Mission Profitability Model</h2>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                         <div className="bg-[#091321] border border-slate-700/50 p-4 rounded-xl flex flex-col">
-                            <span className="text-[10px] font-mono text-slate-400 mb-1">REVENUE (AT ${activeRocket.pricePerKg.toLocaleString()}/kg)</span>
-                            <span className="text-xl font-bold font-mono text-emerald-400">${Math.round(activeRocket.payloadKg * (payloadPercent / 100) * activeRocket.pricePerKg).toLocaleString()}</span>
-                         </div>
-                         <div className="bg-[#091321] border border-slate-700/50 p-4 rounded-xl flex flex-col">
-                            <span className="text-[10px] font-mono text-slate-400 mb-1">PROPELLANT OPEX (~$2/kg)</span>
-                            <span className="text-xl font-bold font-mono text-red-400">-${Math.round(activeRocket.propellantTons * 1000 * 2).toLocaleString()}</span>
-                         </div>
-                         <div className="bg-[#091321] border border-slate-700/50 p-4 rounded-xl flex flex-col">
-                            <span className="text-[10px] font-mono text-slate-400 mb-1">HARDWARE & RANGE CAPEX</span>
-                            <span className="text-xl font-bold font-mono text-red-400">-${activeRocket.baseCost.toLocaleString()}</span>
-                         </div>
+              return (
+                <div className="space-y-6">
+                  {/* REAL-WORLD MULTI-PROXY MARKET FEED (MAXQ.NE / MAXQF) */}
+                  <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center bg-[#0d1522] border border-[#233247] p-4 rounded-2xl shadow-xl">
+                    <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+                      <div className="flex bg-slate-900 border border-slate-700 p-1 rounded-xl">
+                        <button
+                          onClick={() => setTickerSymbol('MAXQ.NE')}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition ${tickerSymbol === 'MAXQ.NE' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-400 hover:text-white'}`}
+                        >
+                          MAXQ.NE (CAD)
+                        </button>
+                        <button
+                          onClick={() => setTickerSymbol('MAXQF')}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition ${tickerSymbol === 'MAXQF' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-400 hover:text-white'}`}
+                        >
+                          MAXQF (USD)
+                        </button>
                       </div>
 
-                      {(() => {
-                        const revenue = activeRocket.payloadKg * (payloadPercent / 100) * activeRocket.pricePerKg;
-                        const fuel = activeRocket.propellantTons * 1000 * 2;
-                        const capex = activeRocket.baseCost;
-                        const margin = revenue - fuel - capex;
-                        const isProfitable = margin > 0;
-                        
-                        return (
-                          <div className={`mt-auto p-5 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all duration-300 ${isProfitable ? 'bg-emerald-950/20 border-emerald-900/50' : 'bg-red-950/20 border-red-900/50'}`}>
-                             <div>
-                               <span className="text-[10px] font-mono font-bold tracking-widest text-slate-400 uppercase block mb-1">Net Mission Margin</span>
-                               <span className={`text-3xl font-black font-mono ${isProfitable ? 'text-emerald-400' : 'text-red-400'}`}>
-                                 {isProfitable ? '+' : ''}{margin < 0 ? '-' : ''}${Math.abs(margin).toLocaleString()}
-                               </span>
-                             </div>
-                             <div className={`px-4 py-2 rounded-lg font-bold text-sm tracking-wider uppercase ${isProfitable ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-                               {isProfitable ? 'Profitable' : 'Loss'}
-                             </div>
+                      <div className="flex items-baseline gap-2.5">
+                        <span className={`text-2xl font-mono font-black ${stockData.isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                          ${stockData.price} <span className="text-[10px] text-slate-400 font-normal">{stockData.currency}</span>
+                        </span>
+                        <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${stockData.isPositive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                          {stockData.change} ({stockData.percent}%)
+                        </span>
+                      </div>
+
+                      <svg viewBox="0 0 120 34" className="w-28 h-8 hidden sm:block overflow-visible">
+                        <polyline
+                          fill="none"
+                          stroke={stockData.isPositive ? "#34d399" : "#f87171"}
+                          strokeWidth="2"
+                          points={sparkSvg}
+                        />
+                      </svg>
+                    </div>
+
+                    <div className="flex flex-wrap gap-5 items-center text-xs font-mono text-slate-400 w-full lg:w-auto justify-between lg:justify-end border-t lg:border-t-0 pt-3 lg:pt-0 border-slate-800">
+                      <div className="flex flex-col">
+                        <span className="text-[9px] uppercase text-slate-500">Day Range</span>
+                        <span className="text-white font-semibold">${stockData.low} – ${stockData.high}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[9px] uppercase text-slate-500">Volume</span>
+                        <span className="text-white font-semibold">{stockData.vol}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[9px] uppercase text-slate-500">Feed Status</span>
+                        <span className="text-cyan-400 font-semibold flex items-center gap-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full ${stockData.source.startsWith('LIVE') ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'}`}></span>
+                          {stockData.source}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => fetchRealWorldStock(tickerSymbol)}
+                        disabled={isFetchingStock}
+                        className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[10px] font-mono font-bold transition flex items-center gap-1"
+                        title="Refresh live quote"
+                      >
+                        <IconReset /> {isFetchingStock ? 'SYNC...' : stockData.lastUpdated}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* MAIN SIMULATOR GRID */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* LEFT COL: Vehicle & Real-World Payload Configurator */}
+                    <div className="lg:col-span-5 bg-[#111a28] border border-[#233247] rounded-2xl p-6 shadow-xl flex flex-col justify-between space-y-5">
+                      <div>
+                        <div className="flex justify-between items-center mb-2">
+                          <h2 className="text-xs font-mono uppercase text-emerald-400 font-bold tracking-wider">1. Launch Vehicle Selection</h2>
+                          <span className="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{activeRocket.missionType}</span>
+                        </div>
+                        <select 
+                          value={selectedRocketId} 
+                          onChange={(e) => setSelectedRocketId(e.target.value)} 
+                          className="w-full bg-slate-900 border border-[#233247] rounded-xl p-3 text-sm text-white font-medium focus:ring-2 focus:ring-emerald-400 focus:outline-none mb-4"
+                        >
+                          {ROCKET_MANIFEST.map(r => <option key={r.id} value={r.id}>{r.name} • {r.operator} ({r.payloadKg.toLocaleString()} kg Max)</option>)}
+                        </select>
+
+                        {!isSuborbital ? (
+                          <div>
+                            <div className="flex justify-between items-center mb-2">
+                              <h2 className="text-xs font-mono uppercase text-cyan-400 font-bold tracking-wider">2. Customer Payload Class</h2>
+                              <span className="text-[10px] font-mono text-emerald-400 font-bold">${activePayloadClass.pricePerKg.toLocaleString()}/kg</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                              {PAYLOAD_CLASSES.map(pc => {
+                                const isSel = pc.id === selectedPayloadClassId;
+                                const fits = pc.unitMassKg <= activeRocket.payloadKg;
+                                return (
+                                  <button
+                                    key={pc.id}
+                                    onClick={() => setSelectedPayloadClassId(pc.id)}
+                                    className={`text-left p-2.5 rounded-xl border transition flex flex-col justify-between ${
+                                      isSel
+                                        ? 'bg-emerald-500/10 border-emerald-400/50 text-white'
+                                        : 'bg-[#091321] border-slate-800 text-slate-400 hover:border-slate-700'
+                                    } ${!fits ? 'opacity-60' : ''}`}
+                                  >
+                                    <div className="flex justify-between items-start gap-1">
+                                      <span className="text-xs font-bold text-slate-100 leading-tight">{pc.name}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center mt-2 text-[10px] font-mono">
+                                      <span className="text-cyan-400">${(pc.pricePerKg / 1000).toFixed(1)}k/kg</span>
+                                      <span className="text-slate-500">{pc.unitMassKg} kg/sat</span>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <div className="p-3 rounded-xl bg-[#091321] border border-slate-800/80 text-[11px] text-slate-300 space-y-1">
+                              <div className="flex justify-between font-mono text-[10px] text-slate-400">
+                                <span>Real-World Examples:</span>
+                                <span className="text-cyan-400">{activePayloadClass.targetOrbit}</span>
+                              </div>
+                              <div className="font-semibold text-white">{activePayloadClass.examples}</div>
+                              <p className="text-slate-400 leading-relaxed pt-1">{activePayloadClass.desc}</p>
+                            </div>
                           </div>
-                        );
-                      })()}
+                        ) : (
+                          <div className="p-3.5 rounded-xl bg-[#091321] border border-slate-800 text-xs text-slate-300 space-y-1.5">
+                            <div className="text-cyan-400 font-mono font-bold text-[10px] uppercase">Suborbital Sounding / Hypersonic Testbed</div>
+                            <p className="text-slate-400 leading-relaxed">
+                              Barracuda carries microgravity science & hypersonic sensor payloads to ~100 km apogee (15 kg max capacity) rather than orbital satellites.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Fairing Load Factor & Visual Schematic */}
+                      <div className="pt-2 border-t border-[#233247]">
+                        <div className="flex justify-between items-baseline mb-2">
+                          <span className="text-xs font-mono uppercase text-slate-300 font-bold">3. Fairing Mass Load Factor</span>
+                          <span className="text-sm font-mono font-bold text-emerald-400">
+                            {payloadPercent}% ({manifestedMassKg.toLocaleString()} / {activeRocket.payloadKg.toLocaleString()} kg)
+                          </span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="5" 
+                          max="100" 
+                          step="1" 
+                          value={payloadPercent} 
+                          onChange={(e) => setPayloadPercent(parseInt(e.target.value))} 
+                          className="w-full accent-emerald-400 h-2 bg-slate-800 rounded-lg cursor-pointer mb-3" 
+                        />
+
+                        <div className="grid grid-cols-3 gap-2 text-center font-mono text-[10px] bg-[#091321] p-3 rounded-xl border border-slate-800">
+                          <div>
+                            <span className="text-slate-500 block">SPACECRAFT COUNT</span>
+                            <span className="text-white font-bold text-xs">{satelliteCount} {satelliteCount === 1 ? 'Unit' : 'Units'}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block">BREAK-EVEN LOAD</span>
+                            <span className={`font-bold text-xs ${payloadPercent >= breakEvenPct ? 'text-emerald-400' : 'text-amber-400'}`}>
+                              {breakEvenPct}% ({breakEvenKg.toLocaleString()} kg)
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block">CARGO INSURED VAL</span>
+                            <span className="text-cyan-400 font-bold text-xs">
+                              ${(satelliteCount * activePayloadClass.hardwareValueM).toFixed(1)}M
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="bg-[#111a28] border border-[#233247] rounded-2xl p-6 shadow-xl text-xs text-slate-400 leading-relaxed font-mono">
-                       <strong>Note on Aerospace Economics:</strong> Notice how negligible the propellant cost is compared to hardware (CapEx). This model dynamically calculates revenue based on active ride-share cargo. Flying partially empty rockets destroys margins, illustrating why modern launch providers prioritize rapid turnaround and heavily manifested payloads to offset fixed hardware costs. 
+                    {/* RIGHT COL: Unit Economics, Rocket Equation Physics & Spaceport Cadence */}
+                    <div className="lg:col-span-7 flex flex-col gap-6">
+                      <div className="bg-[#111a28] border border-[#233247] rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-5">
+                          <div>
+                            <h2 className="text-xs font-mono uppercase text-emerald-400 font-bold tracking-wider">Launch Mission P&L Statement</h2>
+                            <p className="text-xs text-slate-400 mt-0.5">Real-world cost stack comparing vehicle hardware, range fees, and propellant chemistry.</p>
+                          </div>
+                          <span className="text-[10px] font-mono bg-slate-900 border border-slate-700 text-slate-300 px-2.5 py-1 rounded-md">
+                            Propellant: {activeRocket.propellantType}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
+                          <div className="bg-[#091321] border border-slate-800 p-3.5 rounded-xl">
+                            <span className="text-[10px] font-mono text-slate-400 block">GROSS LAUNCH REVENUE</span>
+                            <span className="text-lg font-bold font-mono text-emerald-400">${grossRevenue.toLocaleString()}</span>
+                            <span className="text-[10px] font-mono text-slate-500 block mt-0.5">@ ${effectivePricePerKg.toLocaleString()}/kg</span>
+                          </div>
+                          <div className="bg-[#091321] border border-slate-800 p-3.5 rounded-xl">
+                            <span className="text-[10px] font-mono text-slate-400 block">VEHICLE HARDWARE (CAPEX)</span>
+                            <span className="text-lg font-bold font-mono text-red-400">-${activeRocket.baseCost.toLocaleString()}</span>
+                            <span className="text-[10px] font-mono text-slate-500 block mt-0.5">Airframe & Engines</span>
+                          </div>
+                          <div className="bg-[#091321] border border-slate-800 p-3.5 rounded-xl">
+                            <span className="text-[10px] font-mono text-slate-400 block">SPACEPORT RANGE FEE</span>
+                            <span className="text-lg font-bold font-mono text-amber-400">-${activeRocket.rangeFee.toLocaleString()}</span>
+                            <span className="text-[10px] font-mono text-slate-500 block mt-0.5">MLS Pad, Telemetry & Safety</span>
+                          </div>
+                          <div className="bg-[#091321] border border-slate-800 p-3.5 rounded-xl">
+                            <span className="text-[10px] font-mono text-slate-400 block">DISPENSER & INTEGRATION</span>
+                            <span className="text-lg font-bold font-mono text-red-400">-${dispenserIntegrationCost.toLocaleString()}</span>
+                            <span className="text-[10px] font-mono text-slate-500 block mt-0.5">Cleanroom & Separation</span>
+                          </div>
+                          <div className="bg-[#091321] border border-slate-800 p-3.5 rounded-xl">
+                            <span className="text-[10px] font-mono text-slate-400 block">LIABILITY INSURANCE</span>
+                            <span className="text-lg font-bold font-mono text-red-400">-${activeRocket.insuranceCost.toLocaleString()}</span>
+                            <span className="text-[10px] font-mono text-slate-500 block mt-0.5">Third-Party Range Cover</span>
+                          </div>
+                          <div className="bg-[#091321] border border-cyan-500/30 p-3.5 rounded-xl">
+                            <span className="text-[10px] font-mono text-cyan-400 block">PROPELLANT LOAD ({propellantSharePct}%)</span>
+                            <span className="text-lg font-bold font-mono text-cyan-300">-${propellantCost.toLocaleString()}</span>
+                            <span className="text-[10px] font-mono text-slate-500 block mt-0.5">{activeRocket.propellantTons}t @ ${activeRocket.fuelCostPerKg}/kg</span>
+                          </div>
+                        </div>
+
+                        {/* Net Mission Margin Banner */}
+                        <div className={`p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all ${netMargin >= 0 ? 'bg-emerald-950/25 border-emerald-800/60' : 'bg-red-950/25 border-red-800/60'}`}>
+                          <div>
+                            <span className="text-[10px] font-mono font-bold tracking-widest text-slate-400 uppercase block">
+                              Net Launch Provider Margin (Operating Profit)
+                            </span>
+                            <span className={`text-2xl sm:text-3xl font-black font-mono ${netMargin >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {netMargin >= 0 ? '+' : '-'}${Math.abs(netMargin).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right font-mono">
+                              <span className="text-[10px] text-slate-400 block">OPERATING MARGIN</span>
+                              <span className={`text-sm font-bold ${netMargin >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{marginPercent}%</span>
+                            </div>
+                            <div className={`px-3.5 py-2 rounded-lg font-bold text-xs tracking-wider uppercase ${netMargin >= 0 ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/15 text-red-400 border border-red-500/30'}`}>
+                              {netMargin >= 0 ? 'Profitable Flight' : 'Below Break-Even'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* EDUCATIONAL MODULE: TSIOLKOVSKY MASS FRACTION & SPACEPORT CADENCE MODEL */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-[#111a28] border border-[#233247] rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+                          <div>
+                            <h3 className="text-xs font-mono uppercase text-cyan-400 font-bold tracking-wider mb-1">The Tyranny of the Rocket Equation</h3>
+                            <p className="text-[11px] text-slate-400 leading-relaxed mb-4">
+                              Why does orbital launch cost $11k–$26k/kg when fuel is only ~{propellantSharePct}% of total cost? Because accelerating to 28,000 km/h requires extreme mass ratios:
+                            </p>
+                          </div>
+                          <div className="space-y-2.5 font-mono text-xs bg-[#091321] p-3.5 rounded-xl border border-slate-800">
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Propellant Mass:</span>
+                              <span className="text-white font-bold">{(activeRocket.propellantTons * 1000).toLocaleString()} kg</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Dry Structure Mass:</span>
+                              <span className="text-white font-bold">{activeRocket.dryMassKg.toLocaleString()} kg</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Useful Payload Fraction:</span>
+                              <span className="text-emerald-400 font-bold">{payloadFractionPct}% of Wet Mass</span>
+                            </div>
+                            <div className="flex justify-between pt-2 border-t border-slate-800">
+                              <span className="text-slate-400">Ideal Vacuum Δv:</span>
+                              <span className="text-cyan-400 font-bold">{deltaV.toLocaleString()} m/s (Isp {activeRocket.isp}s)</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-[#111a28] border border-[#233247] rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+                          <div>
+                            <div className="flex justify-between items-center mb-1">
+                              <h3 className="text-xs font-mono uppercase text-emerald-400 font-bold tracking-wider">MLS Spaceport Cadence Model</h3>
+                              <span className="text-xs font-mono font-bold text-white bg-slate-900 px-2 py-0.5 rounded border border-slate-700">{annualCadence} Launches/Yr</span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 leading-relaxed mb-3">
+                              Simulate how Maritime Launch Services (`MAXQ.NE`) scales site profitability via annual launch cadence across its Canso pads:
+                            </p>
+                            <input
+                              type="range"
+                              min="1"
+                              max="24"
+                              step="1"
+                              value={annualCadence}
+                              onChange={(e) => setAnnualCadence(parseInt(e.target.value))}
+                              className="w-full accent-cyan-400 h-2 bg-slate-800 rounded-lg cursor-pointer mb-3"
+                            />
+                          </div>
+                          <div className="space-y-2 font-mono text-xs bg-[#091321] p-3.5 rounded-xl border border-slate-800">
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Annual Range & Processing Rev:</span>
+                              <span className="text-emerald-400 font-bold">${(annualSpaceportRev / 1000000).toFixed(2)}M</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Est. Fixed Site OpEx:</span>
+                              <span className="text-red-400 font-bold">-$6.80M</span>
+                            </div>
+                            <div className="flex justify-between pt-2 border-t border-slate-800">
+                              <span className="text-slate-400">Est. Spaceport EBITDA:</span>
+                              <span className={`font-bold ${annualSpaceportEbitda >= 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                {annualSpaceportEbitda >= 0 ? '+' : '-'}${Math.abs(annualSpaceportEbitda / 1000000).toFixed(2)}M / yr
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {activeTab === 'telemetry' && (
               <div className="space-y-6">
