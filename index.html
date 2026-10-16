@@ -950,38 +950,9 @@
             </button>
           </div>
 
-          {/* RIGHT HUD: CAMERA QUICK-VIEW PRESETS */}
-          <div className="absolute top-4 right-4 z-20 flex flex-wrap gap-1.5 bg-[#091321]/85 backdrop-blur-md p-1.5 rounded-xl border border-slate-600/30 shadow-2xl">
-            <button
-              onClick={() => applyCameraPreset('overview')}
-              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${activePreset === 'overview' ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
-            >
-              OVERVIEW
-            </button>
-            <button
-              onClick={() => applyCameraPreset('pad')}
-              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${activePreset === 'pad' ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
-            >
-              PAD FOCUS
-            </button>
-            <button
-              onClick={() => applyCameraPreset('top')}
-              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${activePreset === 'top' ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
-            >
-              BLUEPRINT
-            </button>
-            <button
-              onClick={() => setAutoOrbit(prev => !prev)}
-              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${autoOrbit ? 'bg-emerald-400/20 text-emerald-400 border border-emerald-400/30' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
-              title="Toggle Auto-Orbit"
-            >
-              ORBIT {autoOrbit ? 'ON' : 'OFF'}
-            </button>
-          </div>
-
           {/* HOVER INSPECTOR BADGE */}
           {hoveredFacility && (
-            <div className="absolute bottom-28 left-4 z-20 max-w-xs bg-[#091321]/90 backdrop-blur-md border border-cyan-400/40 rounded-xl p-3 shadow-2xl pointer-events-none transition-all">
+            <div className="absolute bottom-44 left-4 z-20 max-w-xs bg-[#091321]/90 backdrop-blur-md border border-cyan-400/40 rounded-xl p-3 shadow-2xl pointer-events-none transition-all">
               <div className="flex items-center gap-2 mb-1">
                 <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
                 <span className="text-xs font-bold text-white font-mono">{hoveredFacility.name}</span>
@@ -989,6 +960,60 @@
               <p className="text-[11px] text-slate-300 leading-snug">{hoveredFacility.desc}</p>
             </div>
           )}
+
+          {/* BOTTOM HUD: TIMELINE SLIDER & CAMERA PRESETS */}
+          <div className="absolute bottom-4 left-4 right-4 z-20 p-4 bg-[#091321]/75 backdrop-blur-md rounded-xl border border-slate-600/30 shadow-2xl">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-xs font-mono text-slate-300">Scrub Infrastructure Timeline</span>
+              <span className="text-sm font-mono text-cyan-400 font-bold bg-slate-900 border border-slate-700 px-3 py-1 rounded-lg">Year: {year}</span>
+            </div>
+            <input 
+              type="range" 
+              min="2022" 
+              max="2032" 
+              step="1" 
+              value={year}
+              onChange={(e) => setBuildYear(parseInt(e.target.value))}
+              className="w-full accent-cyan-400 h-2 bg-slate-800 rounded-lg cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] sm:text-xs font-mono text-slate-400 mt-3 px-1">
+              <span className={year >= 2024 && year < 2028 ? "text-cyan-400" : ""}>2024 (Sub)</span>
+              <span className={year >= 2028 && year < 2030 ? "text-cyan-400" : ""}>2028 (Pad 1)</span>
+              <span className={year >= 2030 && year < 2032 ? "text-cyan-400" : ""}>2030 (Pad 2)</span>
+              <span className={year === 2032 ? "text-cyan-400" : ""}>2032 (4-Pad Complex)</span>
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-slate-700/50 flex flex-wrap items-center justify-center sm:justify-between gap-1.5">
+              <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">CAMERA VIEW</span>
+              <div className="flex flex-wrap justify-center gap-1.5 w-full sm:w-auto">
+                <button
+                  onClick={() => applyCameraPreset('overview')}
+                  className={`flex-1 sm:flex-none px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${activePreset === 'overview' ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30' : 'text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800'}`}
+                >
+                  OVERVIEW
+                </button>
+                <button
+                  onClick={() => applyCameraPreset('pad')}
+                  className={`flex-1 sm:flex-none px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${activePreset === 'pad' ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30' : 'text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800'}`}
+                >
+                  PAD FOCUS
+                </button>
+                <button
+                  onClick={() => applyCameraPreset('top')}
+                  className={`flex-1 sm:flex-none px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${activePreset === 'top' ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30' : 'text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800'}`}
+                >
+                  BLUEPRINT
+                </button>
+                <button
+                  onClick={() => setAutoOrbit(prev => !prev)}
+                  className={`flex-1 sm:flex-none px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${autoOrbit ? 'bg-emerald-400/20 text-emerald-400 border border-emerald-400/30' : 'text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800'}`}
+                  title="Toggle Auto-Orbit"
+                >
+                  ORBIT {autoOrbit ? 'ON' : 'OFF'}
+                </button>
+              </div>
+            </div>
+          </div>
 
           <div ref={mountRef} className="w-full h-full" />
         </div>
@@ -1993,28 +2018,6 @@
                         setIsFlightPlaying(true);
                       }}
                     />
-
-                    <div className="absolute bottom-4 left-4 right-4 p-4 bg-[#091321]/75 backdrop-blur-md rounded-xl border border-slate-600/30 shadow-2xl">
-                      <div className="flex justify-between items-center mb-3">
-                        <span className="text-xs font-mono text-slate-300">Scrub Infrastructure Timeline</span>
-                        <span className="text-sm font-mono text-cyan-400 font-bold bg-slate-900 border border-slate-700 px-3 py-1 rounded-lg">Year: {buildYear}</span>
-                      </div>
-                      <input 
-                        type="range" 
-                        min="2022" 
-                        max="2032" 
-                        step="1" 
-                        value={buildYear}
-                        onChange={(e) => setBuildYear(parseInt(e.target.value))}
-                        className="w-full accent-cyan-400 h-2 bg-slate-800 rounded-lg cursor-pointer"
-                      />
-                      <div className="flex justify-between text-[10px] sm:text-xs font-mono text-slate-400 mt-3 px-1">
-                        <span className={buildYear >= 2024 && buildYear < 2028 ? "text-cyan-400" : ""}>2024 (Sub)</span>
-                        <span className={buildYear >= 2028 && buildYear < 2030 ? "text-cyan-400" : ""}>2028 (Pad 1)</span>
-                        <span className={buildYear >= 2030 && buildYear < 2032 ? "text-cyan-400" : ""}>2030 (Pad 2)</span>
-                        <span className={buildYear === 2032 ? "text-cyan-400" : ""}>2032 (4-Pad Complex)</span>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
