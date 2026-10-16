@@ -258,7 +258,6 @@
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x091321); 
-        scene.fog = new THREE.FogExp2(0x091321, 0.0042);
 
         const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
         camera.position.set(55, 45, 60);
@@ -269,7 +268,7 @@
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.1;
+        renderer.toneMappingExposure = 1.375;
         renderer.outputEncoding = THREE.sRGBEncoding;
         currentContainer.appendChild(renderer.domElement);
 
@@ -281,11 +280,11 @@
         controls.maxDistance = 180;
         controls.target.set(-10, 0, 15);
 
-        const hemiLight = new THREE.HemisphereLight(0xdbeafe, 0x0f172a, 0.75);
+        const hemiLight = new THREE.HemisphereLight(0xdbeafe, 0x0f172a, 0.9375);
         scene.add(hemiLight);
-        scene.add(new THREE.AmbientLight(0xffffff, 0.45)); 
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5625)); 
 
-        const dirLight = new THREE.DirectionalLight(0xfffbeb, 1.65);
+        const dirLight = new THREE.DirectionalLight(0xfffbeb, 2.0625);
         dirLight.position.set(40, 70, 30);
         dirLight.castShadow = true;
         dirLight.shadow.mapSize.width = 2048; 
@@ -915,9 +914,9 @@
             </div>
           )}
 
-          {/* LEFT HUD: ORBITAL LAUNCH DEMO */}
-          <div className="absolute top-4 left-4 p-4 bg-[#091321]/85 backdrop-blur-md rounded-xl border border-slate-600/30 shadow-2xl z-20 flex flex-col gap-3 min-w-[210px]">
-            <div className="flex items-center justify-between">
+          {/* LEFT HUD: ORBITAL LAUNCH DEMO (SCALED DOWN BY 50%) */}
+          <div className="absolute top-3 left-3 p-3 bg-[#091321]/85 backdrop-blur-md rounded-xl border border-slate-600/30 shadow-2xl z-20 flex flex-col gap-2 min-w-[180px] origin-top-left scale-50 sm:scale-75 md:scale-50">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] font-mono text-fuchsia-400 font-bold tracking-wider">ORBITAL LAUNCH DEMO</span>
               <span className="text-[9px] font-mono text-slate-400 bg-slate-800/80 px-1.5 py-0.5 rounded">CLICK PAD</span>
             </div>
@@ -930,7 +929,7 @@
                 if (rid === 'aurora-8' && year < 2030) setBuildYear(2030);
                 if (rid === 'c4m-baseline' && year < 2032) setBuildYear(2032);
               }}
-              className="bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-white outline-none cursor-pointer focus:border-cyan-400"
+              className="bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white outline-none cursor-pointer focus:border-cyan-400"
             >
               {orbitalRockets.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
@@ -944,7 +943,7 @@
                    launchStateRef.current = { active: true, time: 0, rocketId: selectedMission };
                  }
               }}
-              className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-xs font-bold py-2.5 rounded-lg transition flex items-center justify-center gap-2 shadow-lg"
+              className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-xs font-bold py-2 rounded-lg transition flex items-center justify-center gap-2 shadow-lg"
             >
               <IconPlay /> Launch To Orbit
             </button>
@@ -952,7 +951,7 @@
 
           {/* HOVER INSPECTOR BADGE */}
           {hoveredFacility && (
-            <div className="absolute bottom-44 left-4 z-20 max-w-xs bg-[#091321]/90 backdrop-blur-md border border-cyan-400/40 rounded-xl p-3 shadow-2xl pointer-events-none transition-all">
+            <div className="absolute bottom-24 left-4 z-20 max-w-xs bg-[#091321]/90 backdrop-blur-md border border-cyan-400/40 rounded-xl p-3 shadow-2xl pointer-events-none transition-all">
               <div className="flex items-center gap-2 mb-1">
                 <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
                 <span className="text-xs font-bold text-white font-mono">{hoveredFacility.name}</span>
@@ -961,11 +960,11 @@
             </div>
           )}
 
-          {/* BOTTOM HUD: TIMELINE SLIDER & CAMERA PRESETS */}
-          <div className="absolute bottom-4 left-4 right-4 z-20 p-4 bg-[#091321]/75 backdrop-blur-md rounded-xl border border-slate-600/30 shadow-2xl">
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-xs font-mono text-slate-300">Scrub Infrastructure Timeline</span>
-              <span className="text-sm font-mono text-cyan-400 font-bold bg-slate-900 border border-slate-700 px-3 py-1 rounded-lg">Year: {year}</span>
+          {/* BOTTOM HUD: TIMELINE SLIDER & CAMERA PRESETS (SCALED DOWN BY 75% IN FOOTPRINT) */}
+          <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-20 px-3 py-1.5 bg-[#091321]/80 backdrop-blur-md rounded-lg border border-slate-600/30 shadow-xl">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-[9px] font-mono text-slate-300">Scrub Infrastructure Timeline</span>
+              <span className="text-[10px] font-mono text-cyan-400 font-bold bg-slate-900 border border-slate-700 px-1.5 py-0.5 rounded">Year: {year}</span>
             </div>
             <input 
               type="range" 
@@ -974,39 +973,39 @@
               step="1" 
               value={year}
               onChange={(e) => setBuildYear(parseInt(e.target.value))}
-              className="w-full accent-cyan-400 h-2 bg-slate-800 rounded-lg cursor-pointer"
+              className="w-full accent-cyan-400 h-1 bg-slate-800 rounded-lg cursor-pointer block"
             />
-            <div className="flex justify-between text-[10px] sm:text-xs font-mono text-slate-400 mt-3 px-1">
+            <div className="flex justify-between text-[8px] font-mono text-slate-400 mt-1 px-0.5">
               <span className={year >= 2024 && year < 2028 ? "text-cyan-400" : ""}>2024 (Sub)</span>
               <span className={year >= 2028 && year < 2030 ? "text-cyan-400" : ""}>2028 (Pad 1)</span>
               <span className={year >= 2030 && year < 2032 ? "text-cyan-400" : ""}>2030 (Pad 2)</span>
               <span className={year === 2032 ? "text-cyan-400" : ""}>2032 (4-Pad Complex)</span>
             </div>
 
-            <div className="mt-3 pt-3 border-t border-slate-700/50 flex flex-wrap items-center justify-center sm:justify-between gap-1.5">
-              <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">CAMERA VIEW</span>
-              <div className="flex flex-wrap justify-center gap-1.5 w-full sm:w-auto">
+            <div className="mt-1 pt-1 border-t border-slate-700/50 flex items-center justify-between gap-1">
+              <span className="text-[8px] font-mono text-slate-400 hidden sm:inline">CAMERA</span>
+              <div className="flex justify-center gap-1 w-full sm:w-auto">
                 <button
                   onClick={() => applyCameraPreset('overview')}
-                  className={`flex-1 sm:flex-none px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${activePreset === 'overview' ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30' : 'text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800'}`}
+                  className={`flex-1 sm:flex-none px-1.5 py-0.5 rounded text-[8px] font-mono font-bold transition ${activePreset === 'overview' ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30' : 'text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800'}`}
                 >
                   OVERVIEW
                 </button>
                 <button
                   onClick={() => applyCameraPreset('pad')}
-                  className={`flex-1 sm:flex-none px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${activePreset === 'pad' ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30' : 'text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800'}`}
+                  className={`flex-1 sm:flex-none px-1.5 py-0.5 rounded text-[8px] font-mono font-bold transition ${activePreset === 'pad' ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30' : 'text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800'}`}
                 >
                   PAD FOCUS
                 </button>
                 <button
                   onClick={() => applyCameraPreset('top')}
-                  className={`flex-1 sm:flex-none px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${activePreset === 'top' ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30' : 'text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800'}`}
+                  className={`flex-1 sm:flex-none px-1.5 py-0.5 rounded text-[8px] font-mono font-bold transition ${activePreset === 'top' ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/30' : 'text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800'}`}
                 >
                   BLUEPRINT
                 </button>
                 <button
                   onClick={() => setAutoOrbit(prev => !prev)}
-                  className={`flex-1 sm:flex-none px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${autoOrbit ? 'bg-emerald-400/20 text-emerald-400 border border-emerald-400/30' : 'text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800'}`}
+                  className={`flex-1 sm:flex-none px-1.5 py-0.5 rounded text-[8px] font-mono font-bold transition ${autoOrbit ? 'bg-emerald-400/20 text-emerald-400 border border-emerald-400/30' : 'text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800'}`}
                   title="Toggle Auto-Orbit"
                 >
                   ORBIT {autoOrbit ? 'ON' : 'OFF'}
